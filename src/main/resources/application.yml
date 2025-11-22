@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: remote-project-hub
+
+  profiles:
+    # When no profile is specified, use "dev" by default
+    default: dev
+
+server:
+  port: 8080
+
+# Global settings (apply to all profiles, including dev)
+jackson:
+  time-zone: UTC
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/remote_project_hub
+    username: postgres
+    password: oplm_4312
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update   # dev: auto create/update tables; switch to "validate" later
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true       # turn true if you want to see SQL in console
+
+#  jackson:
+#    time-zone: UTC        # ensure all JSON dates are in UTC
+
+#server:
+#  port: 8080
+
+#logging:
+#  level:
+  # Uncomment if you want to debug security / SQL during dev
+  # org.springframework.security: DEBUG
+  # org.hibernate.SQL: DEBUG
+

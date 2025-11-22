@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/remote_project_hub
+    username: postgres
+    password: oplm_4312
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update   # dev only; auto create/update tables from entities
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true       # set true temporarily if you want SQL in logs
+
+logging:
+  level:
+  # Uncomment while debugging:
+  # org.hibernate.SQL: DEBUG
+   org.springframework.security: DEBUG
