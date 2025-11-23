@@ -4,10 +4,15 @@ import com.itorly.rph.common.BaseEntity;
 import com.itorly.rph.organization.OrganizationMember;
 import com.itorly.rph.project.Task;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@EqualsAndHashCode(callSuper = true)
+@Data
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {
