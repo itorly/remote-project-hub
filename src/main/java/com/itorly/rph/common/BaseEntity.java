@@ -1,9 +1,14 @@
 package com.itorly.rph.common;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
 import java.time.Instant;
 
 @MappedSuperclass
+@Data
+@EqualsAndHashCode
 public abstract class BaseEntity {
 
     @Id
