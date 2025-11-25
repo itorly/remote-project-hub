@@ -1,4 +1,4 @@
-package com.itorly.rph.auto.dto;
+package com.itorly.rph.auth.dto;
 
 import lombok.Getter;
 
