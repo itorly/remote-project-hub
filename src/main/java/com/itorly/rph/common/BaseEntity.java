@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.time.Instant;
+import java.time.*;
 
 @MappedSuperclass
 @Data
@@ -16,21 +16,31 @@ public abstract class BaseEntity {
     private Long id;
 
     @Column(nullable = false, updatable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @Column(nullable = false)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
+        LocalDateTime localDateTime = getLocalDateTime();
+
+        createdAt = localDateTime;
+        updatedAt = localDateTime;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = Instant.now();
+
+        updatedAt = getLocalDateTime();
+    }
+
+    private static LocalDateTime getLocalDateTime() {
+        ZoneId zoneId = ZoneId.systemDefault();
+        Clock clock = Clock.system(zoneId);
+        Instant now = Instant.now(clock);
+        ZonedDateTime localTime = now.atZone(zoneId);
+        return localTime.toLocalDateTime();
     }
 
     // getters/setters
