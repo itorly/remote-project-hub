@@ -3,6 +3,8 @@ package com.itorly.rph.organization;
 import com.itorly.rph.common.BaseEntity;
 import com.itorly.rph.user.User;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
 
@@ -11,6 +13,8 @@ import java.time.Instant;
         name = "organization_members",
         uniqueConstraints = @UniqueConstraint(columnNames = {"organization_id", "user_id"})
 )
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class OrganizationMember extends BaseEntity {
 
     @ManyToOne(optional = false)
@@ -28,5 +32,4 @@ public class OrganizationMember extends BaseEntity {
     @Column(nullable = false)
     private Instant joinedAt = Instant.now();
 
-    // getters/setters
 }

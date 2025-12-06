@@ -35,5 +35,4 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
 
-    // getters/setters
 }
