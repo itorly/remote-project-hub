@@ -1,11 +1,11 @@
-package com.itorly.rph.organization.dto;
+package com.itorly.rph.project.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class CreateOrganizationRequest {
+public class CreateProjectRequest {
 
     @NotBlank
     @Size(min = 2, max = 255)

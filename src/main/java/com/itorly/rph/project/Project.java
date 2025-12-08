@@ -3,11 +3,15 @@ package com.itorly.rph.project;
 import com.itorly.rph.common.BaseEntity;
 import com.itorly.rph.organization.Organization;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
 @Entity
 @Table(name = "projects")
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class Project extends BaseEntity {
 
     @Column(nullable = false, length = 255)
