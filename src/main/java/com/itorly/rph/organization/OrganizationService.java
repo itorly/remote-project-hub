@@ -1,5 +1,6 @@
 package com.itorly.rph.organization;
 
+import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.dto.CreateOrganizationRequest;
 import com.itorly.rph.organization.dto.OrganizationResponse;
 import com.itorly.rph.security.SecurityUtils;
@@ -33,7 +34,7 @@ public class OrganizationService {
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
         String email = SecurityUtils.getCurrentUserEmail();
         if (email == null) {
-            throw new IllegalStateException("No authenticated user");
+            throw new UnauthorizedException("No authenticated user");
         }
 
         User currentUser = userRepository.findByEmail(email)
@@ -67,7 +68,7 @@ public class OrganizationService {
     public List<OrganizationResponse> getMyOrganizations() {
         String email = SecurityUtils.getCurrentUserEmail();
         if (email == null) {
-            throw new IllegalStateException("No authenticated user");
+            throw new UnauthorizedException("No authenticated user");
         }
 
         User currentUser = userRepository.findByEmail(email)

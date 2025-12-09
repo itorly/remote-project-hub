@@ -3,6 +3,7 @@ package com.itorly.rph.auth;
 import com.itorly.rph.auth.dto.AuthResponse;
 import com.itorly.rph.auth.dto.LoginRequest;
 import com.itorly.rph.auth.dto.RegisterRequest;
+import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.security.JwtTokenProvider;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserService;
@@ -54,9 +55,9 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         User user = userService.findByEmailOrThrow(request.getEmail());
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             // In a real app, you’d use a custom exception and 401 status
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new UnauthorizedException("Invalid email or password");
         }
 
         String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail());

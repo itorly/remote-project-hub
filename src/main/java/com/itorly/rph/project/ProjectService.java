@@ -1,5 +1,6 @@
 package com.itorly.rph.project;
 
+import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.organization.Organization;
 import com.itorly.rph.organization.OrganizationMember;
 import com.itorly.rph.organization.OrganizationMemberRepository;
@@ -45,12 +46,12 @@ public class ProjectService {
 
         OrganizationMember membership = memberRepository
                 .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
-                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
         // Only OWNER or ADMIN can create projects
         if (membership.getRole() != OrganizationRole.OWNER &&
                 membership.getRole() != OrganizationRole.ADMIN) {
-            throw new IllegalStateException("User is not allowed to create projects for this organization");
+            throw new ForbiddenException("User is not allowed to create projects for this organization");
         }
 
         Project project = new Project();

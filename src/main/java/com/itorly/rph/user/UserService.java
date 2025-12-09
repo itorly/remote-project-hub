@@ -1,5 +1,6 @@
 package com.itorly.rph.user;
 
+import com.itorly.rph.common.exception.ConflictException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,7 @@ public class UserService {
     @Transactional
     public User registerUser(String email, String rawPassword, String displayName, String timezone) {
         userRepository.findByEmail(email).ifPresent(u -> {
-            throw new IllegalArgumentException("Email already in use");
+            throw new ConflictException("Email already in use");
         });
 
         User user = new User();
