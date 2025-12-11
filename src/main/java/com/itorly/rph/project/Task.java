@@ -3,11 +3,15 @@ package com.itorly.rph.project;
 import com.itorly.rph.common.BaseEntity;
 import com.itorly.rph.user.User;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "tasks")
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class Task extends BaseEntity {
 
     @ManyToOne(optional = false)
@@ -38,5 +42,4 @@ public class Task extends BaseEntity {
     @Column(length = 500)
     private String tags; // comma-separated for MVP
 
-    // getters/setters
 }

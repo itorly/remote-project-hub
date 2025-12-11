@@ -1,0 +1,217 @@
+package com.itorly.rph.project;
+
+import com.itorly.rph.organization.OrganizationMember;
+import com.itorly.rph.organization.OrganizationMemberRepository;
+import com.itorly.rph.project.dto.*;
+import com.itorly.rph.security.SecurityUtils;
+import com.itorly.rph.user.User;
+import com.itorly.rph.user.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+public class BoardService {
+
+    private final ProjectRepository projectRepository;
+    private final BoardColumnRepository boardColumnRepository;
+    private final TaskRepository taskRepository;
+    private final OrganizationMemberRepository memberRepository;
+    private final UserRepository userRepository;
+
+    public BoardService(ProjectRepository projectRepository,
+                        BoardColumnRepository boardColumnRepository,
+                        TaskRepository taskRepository,
+                        OrganizationMemberRepository memberRepository,
+                        UserRepository userRepository) {
+        this.projectRepository = projectRepository;
+        this.boardColumnRepository = boardColumnRepository;
+        this.taskRepository = taskRepository;
+        this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public BoardResponse getBoard(Long projectId) {
+        Project project = getAuthorizedProject(projectId);
+
+        List<BoardColumn> columns = boardColumnRepository
+                .findByProjectIdOrderByPositionAsc(projectId);
+
+        // Option 1: load tasks per column
+        Map<Long, List<Task>> tasksByColumn = new HashMap<>();
+        for (BoardColumn col : columns) {
+            List<Task> tasks = taskRepository.findByColumnIdOrderByIdAsc(col.getId());
+            tasksByColumn.put(col.getId(), tasks);
+        }
+
+        List<BoardColumnResponse> columnResponses = columns.stream()
+                .map(col -> {
+                    List<Task> tasks = tasksByColumn.getOrDefault(col.getId(), List.of());
+                    List<TaskResponse> taskResponses = tasks.stream()
+                            .map(this::toTaskResponse)
+                            .collect(Collectors.toList());
+                    return new BoardColumnResponse(
+                            col.getId(),
+                            col.getName(),
+                            col.getPosition(),
+                            taskResponses
+                    );
+                })
+                .toList();
+
+        return new BoardResponse(project.getId(), project.getName(), columnResponses);
+    }
+
+    @Transactional
+    public BoardColumnResponse createColumn(Long projectId, CreateColumnRequest request) {
+        Project project = getAuthorizedProject(projectId);
+
+        List<BoardColumn> existing = boardColumnRepository
+                .findByProjectIdOrderByPositionAsc(projectId);
+
+        int position;
+        if (request.getPosition() == null) {
+            position = existing.isEmpty()
+                    ? 0
+                    : existing.get(existing.size() - 1).getPosition() + 1;
+        } else {
+            position = request.getPosition();
+        }
+
+        BoardColumn column = new BoardColumn();
+        column.setProject(project);
+        column.setName(request.getName());
+        column.setPosition(position);
+
+        BoardColumn saved = boardColumnRepository.save(column);
+
+        return new BoardColumnResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getPosition(),
+                List.of()
+        );
+    }
+
+    @Transactional
+    public TaskResponse createTask(Long projectId, CreateTaskRequest request) {
+        Project project = getAuthorizedProject(projectId);
+
+        BoardColumn column = boardColumnRepository.findById(request.getColumnId())
+                .orElseThrow(() -> new EntityNotFoundException("Column not found"));
+
+        if (!Objects.equals(column.getProject().getId(), project.getId())) {
+            throw new IllegalStateException("Column does not belong to this project");
+        }
+
+        Task task = new Task();
+        task.setProject(project);
+        task.setColumn(column);
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setTags(request.getTags());
+        task.setDueDate(request.getDueDate());
+
+        // Set status based on column name (simple mapping)
+        task.setStatus(mapColumnNameToStatus(column.getName()));
+
+        if (request.getAssigneeId() != null) {
+            User assignee = userRepository.findById(request.getAssigneeId())
+                    .orElseThrow(() -> new EntityNotFoundException("Assignee not found"));
+            task.setAssignee(assignee);
+        }
+
+        Task saved = taskRepository.save(task);
+
+        return toTaskResponse(saved);
+    }
+
+    @Transactional
+    public TaskResponse moveTask(Long projectId, Long taskId, MoveTaskRequest request) {
+        Project project = getAuthorizedProject(projectId);
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Task not found"));
+
+        if (!Objects.equals(task.getProject().getId(), project.getId())) {
+            throw new IllegalStateException("Task does not belong to this project");
+        }
+
+        BoardColumn targetColumn = boardColumnRepository.findById(request.getTargetColumnId())
+                .orElseThrow(() -> new EntityNotFoundException("Target column not found"));
+
+        if (!Objects.equals(targetColumn.getProject().getId(), project.getId())) {
+            throw new IllegalStateException("Target column does not belong to this project");
+        }
+
+        task.setColumn(targetColumn);
+        task.setStatus(mapColumnNameToStatus(targetColumn.getName()));
+
+        Task saved = taskRepository.save(task);
+
+        // TODO: later, create ActivityLog entry here
+
+        return toTaskResponse(saved);
+    }
+
+    private Project getAuthorizedProject(Long projectId) {
+        User currentUser = getCurrentUserOrThrow();
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new EntityNotFoundException("Project not found"));
+
+        Long orgId = project.getOrganization().getId();
+        OrganizationMember membership = memberRepository
+                .findByOrganizationIdAndUserId(orgId, currentUser.getId())
+                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
+
+        // For now, any member can view and modify board. Later we can restrict this.
+        return project;
+    }
+
+    private User getCurrentUserOrThrow() {
+        String email = SecurityUtils.getCurrentUserEmail();
+        if (email == null) {
+            throw new IllegalStateException("No authenticated user");
+        }
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    }
+
+    private TaskResponse toTaskResponse(Task task) {
+        Long assigneeId = null;
+        String assigneeName = null;
+        if (task.getAssignee() != null) {
+            assigneeId = task.getAssignee().getId();
+            assigneeName = task.getAssignee().getDisplayName();
+        }
+
+        return new TaskResponse(
+                task.getId(),
+                task.getColumn().getId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.getStatus(),
+                assigneeId,
+                assigneeName,
+                task.getDueDate(),
+                task.getTags()
+        );
+    }
+
+    private TaskStatus mapColumnNameToStatus(String columnName) {
+        String normalized = columnName.trim().toLowerCase();
+        return switch (normalized) {
+            case "todo" -> TaskStatus.TODO;
+            case "in progress" -> TaskStatus.IN_PROGRESS;
+            case "review" -> TaskStatus.REVIEW;
+            case "done" -> TaskStatus.DONE;
+            default -> TaskStatus.TODO;
+        };
+    }
+}
