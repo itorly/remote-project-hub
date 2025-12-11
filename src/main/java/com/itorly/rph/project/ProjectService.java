@@ -1,11 +1,6 @@
 package com.itorly.rph.project;
 
-import com.itorly.rph.common.exception.ForbiddenException;
-import com.itorly.rph.organization.Organization;
-import com.itorly.rph.organization.OrganizationMember;
-import com.itorly.rph.organization.OrganizationMemberRepository;
-import com.itorly.rph.organization.OrganizationRole;
-import com.itorly.rph.organization.OrganizationRepository;
+import com.itorly.rph.organization.*;
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
 import com.itorly.rph.security.SecurityUtils;
@@ -24,17 +19,20 @@ public class ProjectService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final BoardColumnRepository boardColumnRepository;
 
     public ProjectService(
             ProjectRepository projectRepository,
             OrganizationRepository organizationRepository,
             OrganizationMemberRepository memberRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            BoardColumnRepository boardColumnRepository
     ) {
         this.projectRepository = projectRepository;
         this.organizationRepository = organizationRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.boardColumnRepository = boardColumnRepository;
     }
 
     @Transactional
@@ -46,12 +44,11 @@ public class ProjectService {
 
         OrganizationMember membership = memberRepository
                 .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
-                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
+                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
 
-        // Only OWNER or ADMIN can create projects
         if (membership.getRole() != OrganizationRole.OWNER &&
                 membership.getRole() != OrganizationRole.ADMIN) {
-            throw new ForbiddenException("User is not allowed to create projects for this organization");
+            throw new IllegalStateException("User is not allowed to create projects for this organization");
         }
 
         Project project = new Project();
@@ -61,6 +58,8 @@ public class ProjectService {
         project.setOrganization(org);
 
         Project saved = projectRepository.save(project);
+
+        createDefaultColumns(saved);
 
         return new ProjectResponse(
                 saved.getId(),
@@ -78,7 +77,6 @@ public class ProjectService {
         Organization org = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
 
-        // Ensure current user is at least a member
         memberRepository.findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
                 .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
 
@@ -103,5 +101,35 @@ public class ProjectService {
 
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    }
+
+    /**
+     * Every new project will automatically have your 4 Kanban columns.
+     */
+    private void createDefaultColumns(Project project) {
+        BoardColumn todo = new BoardColumn();
+        todo.setProject(project);
+        todo.setName("Todo");
+        todo.setPosition(0);
+
+        BoardColumn inProgress = new BoardColumn();
+        inProgress.setProject(project);
+        inProgress.setName("In Progress");
+        inProgress.setPosition(1);
+
+        BoardColumn review = new BoardColumn();
+        review.setProject(project);
+        review.setName("Review");
+        review.setPosition(2);
+
+        BoardColumn done = new BoardColumn();
+        done.setProject(project);
+        done.setName("Done");
+        done.setPosition(3);
+
+        boardColumnRepository.save(todo);
+        boardColumnRepository.save(inProgress);
+        boardColumnRepository.save(review);
+        boardColumnRepository.save(done);
     }
 }

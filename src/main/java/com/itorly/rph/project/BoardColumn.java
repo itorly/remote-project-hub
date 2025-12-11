@@ -2,11 +2,15 @@ package com.itorly.rph.project;
 
 import com.itorly.rph.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
 @Entity
 @Table(name = "board_columns")
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class BoardColumn extends BaseEntity {
 
     @ManyToOne(optional = false)
@@ -22,5 +26,4 @@ public class BoardColumn extends BaseEntity {
     @OneToMany(mappedBy = "column", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Task> tasks;
 
-    // getters/setters
 }
