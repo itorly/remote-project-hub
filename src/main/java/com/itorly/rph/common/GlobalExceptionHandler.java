@@ -16,6 +16,17 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.util.List;
 
+/**
+ * Implementation steps of global exception handling:
+ *
+ * 1.Add a reusable ApiError DTO
+ *
+ * 2.Add custom exceptions (Forbidden, Conflict, Unauthorized, etc.)
+ *
+ * 3.Add a @ControllerAdvice global handler to map exceptions → HTTP status
+ *
+ * 4.Replace IllegalStateException / IllegalArgumentException in your code with these custom exceptions
+ */
 //  Now any controller/service throwing these exceptions will
 //  result in a clean JSON error.
 @ControllerAdvice
