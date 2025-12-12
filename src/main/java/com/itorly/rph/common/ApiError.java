@@ -1,10 +1,12 @@
 package com.itorly.rph.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
 
 import java.time.Instant;
 import java.util.List;
 
+@Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiError {
 
@@ -31,5 +33,4 @@ public class ApiError {
         this.errors = errors;
     }
 
-    // getters/setters
 }
