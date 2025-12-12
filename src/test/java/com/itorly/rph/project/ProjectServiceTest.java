@@ -36,6 +36,9 @@ class ProjectServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private BoardColumnRepository boardColumnRepository;
+
     private ProjectService projectService;
 
     @BeforeEach
@@ -44,7 +47,8 @@ class ProjectServiceTest {
                 projectRepository,
                 organizationRepository,
                 memberRepository,
-                userRepository
+                userRepository,
+                boardColumnRepository
         );
     }
 
