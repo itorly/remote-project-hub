@@ -1,5 +1,6 @@
 package com.itorly.rph.project;
 
+import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.organization.*;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
@@ -10,8 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import jakarta.persistence.EntityNotFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -125,7 +124,7 @@ class ProjectServiceTest {
     }
 
     @Test
-    void createProject_whenUserIsNotMember_throwsIllegalStateException() {
+    void createProject_whenUserIsNotMember_throwsForbiddenException() {
         Long orgId = 1L;
         String currentUserEmail = "stranger@example.com";
 
@@ -159,9 +158,9 @@ class ProjectServiceTest {
             request.setName("First Project");
             request.setDescription("My first project");
 
-            // Act + Assert: expect IllegalStateException
-            IllegalStateException ex = assertThrows(
-                    IllegalStateException.class,
+            // Act + Assert: expect ForbiddenException
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
                     () -> projectService.createProject(orgId, request)
             );
 
