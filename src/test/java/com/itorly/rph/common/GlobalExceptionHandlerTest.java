@@ -51,7 +51,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.error").value("Forbidden"))
-                .andExpect(jsonPath("$.message").value("Action not allowed"))
+                .andExpect(jsonPath("$.message").value("Action not allowed for this user"))
                 .andExpect(jsonPath("$.path").value("/test-exceptions/illegal/forbidden"));
     }
 
