@@ -3,9 +3,13 @@ package com.itorly.rph.project;
 import com.itorly.rph.common.BaseEntity;
 import com.itorly.rph.user.User;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "activity_logs")
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class ActivityLog extends BaseEntity {
 
     @ManyToOne(optional = false)
@@ -30,5 +34,4 @@ public class ActivityLog extends BaseEntity {
     @Column(length = 4000)
     private String newValue;
 
-    // getters/setters
 }
