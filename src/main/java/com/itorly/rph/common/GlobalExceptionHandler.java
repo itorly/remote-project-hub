@@ -89,12 +89,23 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> handleIllegalState(
+            IllegalStateException ex,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = determineStatusForIllegalState(ex);
+        String message = ex.getMessage() != null ? ex.getMessage() : "Illegal state encountered";
+        return buildError(status, message, request);
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             EntityNotFoundException ex,
             HttpServletRequest request
     ) {
-        return buildError(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        String message = ex.getMessage() != null ? ex.getMessage() : "Resource not found";
+        return buildError(HttpStatus.NOT_FOUND, message, request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -134,5 +145,19 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(status).body(apiError);
+    }
+
+    private HttpStatus determineStatusForIllegalState(IllegalStateException ex) {
+        String message = ex.getMessage();
+        if (message != null) {
+            String lowerMessage = message.toLowerCase();
+            if (lowerMessage.contains("not allowed")
+                    || lowerMessage.contains("not a member")
+                    || lowerMessage.contains("no authenticated user")
+                    || lowerMessage.contains("does not belong")) {
+                return HttpStatus.FORBIDDEN;
+            }
+        }
+        return HttpStatus.BAD_REQUEST;
     }
 }
