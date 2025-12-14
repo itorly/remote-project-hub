@@ -1,5 +1,7 @@
 package com.itorly.rph.project;
 
+import com.itorly.rph.common.exception.ForbiddenException;
+import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.*;
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
@@ -44,11 +46,11 @@ public class ProjectService {
 
         OrganizationMember membership = memberRepository
                 .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
-                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
         if (membership.getRole() != OrganizationRole.OWNER &&
                 membership.getRole() != OrganizationRole.ADMIN) {
-            throw new IllegalStateException("User is not allowed to create projects for this organization");
+            throw new ForbiddenException("User is not allowed to create projects for this organization");
         }
 
         Project project = new Project();
@@ -78,7 +80,7 @@ public class ProjectService {
                 .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
 
         memberRepository.findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
-                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
         List<Project> projects = projectRepository.findByOrganizationId(org.getId());
 
@@ -96,7 +98,7 @@ public class ProjectService {
     private User getCurrentUserOrThrow() {
         String email = SecurityUtils.getCurrentUserEmail();
         if (email == null) {
-            throw new IllegalStateException("No authenticated user");
+            throw new UnauthorizedException("No authenticated user");
         }
 
         return userRepository.findByEmail(email)

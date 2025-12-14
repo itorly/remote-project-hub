@@ -1,5 +1,8 @@
 package com.itorly.rph.project;
 
+import com.itorly.rph.common.exception.BadRequestException;
+import com.itorly.rph.common.exception.ForbiddenException;
+import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.OrganizationMember;
 import com.itorly.rph.organization.OrganizationMemberRepository;
 import com.itorly.rph.project.dto.*;
@@ -105,7 +108,7 @@ public class BoardService {
                 .orElseThrow(() -> new EntityNotFoundException("Column not found"));
 
         if (!Objects.equals(column.getProject().getId(), project.getId())) {
-            throw new IllegalStateException("Column does not belong to this project");
+            throw new BadRequestException("Column does not belong to this project");
         }
 
         Task task = new Task();
@@ -138,14 +141,14 @@ public class BoardService {
                 .orElseThrow(() -> new EntityNotFoundException("Task not found"));
 
         if (!Objects.equals(task.getProject().getId(), project.getId())) {
-            throw new IllegalStateException("Task does not belong to this project");
+            throw new BadRequestException("Task does not belong to this project");
         }
 
         BoardColumn targetColumn = boardColumnRepository.findById(request.getTargetColumnId())
                 .orElseThrow(() -> new EntityNotFoundException("Target column not found"));
 
         if (!Objects.equals(targetColumn.getProject().getId(), project.getId())) {
-            throw new IllegalStateException("Target column does not belong to this project");
+            throw new BadRequestException("Target column does not belong to this project");
         }
 
         task.setColumn(targetColumn);
@@ -167,7 +170,7 @@ public class BoardService {
         Long orgId = project.getOrganization().getId();
         OrganizationMember membership = memberRepository
                 .findByOrganizationIdAndUserId(orgId, currentUser.getId())
-                .orElseThrow(() -> new IllegalStateException("User is not a member of this organization"));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
         // For now, any member can view and modify board. Later we can restrict this.
         return project;
@@ -176,7 +179,7 @@ public class BoardService {
     private User getCurrentUserOrThrow() {
         String email = SecurityUtils.getCurrentUserEmail();
         if (email == null) {
-            throw new IllegalStateException("No authenticated user");
+            throw new UnauthorizedException("No authenticated user");
         }
 
         return userRepository.findByEmail(email)
