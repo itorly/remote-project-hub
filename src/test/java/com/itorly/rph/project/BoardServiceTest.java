@@ -123,6 +123,7 @@ class BoardServiceTest {
             assertEquals(400L, response.getId());
             assertEquals(columnId, response.getColumnId());
 
+            // Logged activity should capture action metadata and the acting user
             ActivityLog captured = logCaptor.getValue();
             assertEquals(ActivityActionType.TASK_CREATED, captured.getActionType());
             assertEquals(project, captured.getProject());
@@ -209,6 +210,7 @@ class BoardServiceTest {
             assertEquals(targetColumnId, response.getColumnId());
             assertEquals(TaskStatus.DONE, task.getStatus());
 
+            // Movement activity should log both column names along with the actor
             ActivityLog captured = logCaptor.getValue();
             assertEquals(ActivityActionType.TASK_MOVED, captured.getActionType());
             assertEquals(currentColumn.getName(), captured.getOldValue());
