@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/projects/{projectId}")
 public class BoardController {
@@ -46,6 +48,12 @@ public class BoardController {
             @Valid @RequestBody MoveTaskRequest request
     ) {
         TaskResponse response = boardService.moveTask(projectId, taskId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/activity")
+    public ResponseEntity<List<ActivityLogResponse>> getActivity(@PathVariable Long projectId) {
+        List<ActivityLogResponse> response = boardService.getActivity(projectId);
         return ResponseEntity.ok(response);
     }
 }

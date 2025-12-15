@@ -22,17 +22,20 @@ public class BoardService {
     private final ProjectRepository projectRepository;
     private final BoardColumnRepository boardColumnRepository;
     private final TaskRepository taskRepository;
+    private final ActivityLogRepository activityLogRepository;
     private final OrganizationMemberRepository memberRepository;
     private final UserRepository userRepository;
 
     public BoardService(ProjectRepository projectRepository,
                         BoardColumnRepository boardColumnRepository,
                         TaskRepository taskRepository,
+                        ActivityLogRepository activityLogRepository,
                         OrganizationMemberRepository memberRepository,
                         UserRepository userRepository) {
         this.projectRepository = projectRepository;
         this.boardColumnRepository = boardColumnRepository;
         this.taskRepository = taskRepository;
+        this.activityLogRepository = activityLogRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
     }
@@ -102,7 +105,8 @@ public class BoardService {
 
     @Transactional
     public TaskResponse createTask(Long projectId, CreateTaskRequest request) {
-        Project project = getAuthorizedProject(projectId);
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
 
         BoardColumn column = boardColumnRepository.findById(request.getColumnId())
                 .orElseThrow(() -> new EntityNotFoundException("Column not found"));
@@ -130,12 +134,15 @@ public class BoardService {
 
         Task saved = taskRepository.save(task);
 
+        logActivity(project, saved, ActivityActionType.TASK_CREATED, null, column.getName(), currentUser);
+
         return toTaskResponse(saved);
     }
 
     @Transactional
     public TaskResponse moveTask(Long projectId, Long taskId, MoveTaskRequest request) {
-        Project project = getAuthorizedProject(projectId);
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new EntityNotFoundException("Task not found"));
@@ -151,24 +158,40 @@ public class BoardService {
             throw new BadRequestException("Target column does not belong to this project");
         }
 
+        String oldColumnName = task.getColumn().getName();
+
         task.setColumn(targetColumn);
         task.setStatus(mapColumnNameToStatus(targetColumn.getName()));
 
         Task saved = taskRepository.save(task);
 
-        // TODO: later, create ActivityLog entry here
+        logActivity(project, saved, ActivityActionType.TASK_MOVED, oldColumnName, targetColumn.getName(), currentUser);
 
         return toTaskResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public List<ActivityLogResponse> getActivity(Long projectId) {
+        Project project = getAuthorizedProject(projectId);
+
+        List<ActivityLog> logs = activityLogRepository.findByProjectIdOrderByCreatedAtDesc(project.getId());
+
+        return logs.stream()
+                .map(this::toActivityResponse)
+                .toList();
+    }
+
     private Project getAuthorizedProject(Long projectId) {
         User currentUser = getCurrentUserOrThrow();
+        return getAuthorizedProject(projectId, currentUser);
+    }
 
+    private Project getAuthorizedProject(Long projectId, User currentUser) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new EntityNotFoundException("Project not found"));
 
         Long orgId = project.getOrganization().getId();
-        OrganizationMember membership = memberRepository
+        memberRepository
                 .findByOrganizationIdAndUserId(orgId, currentUser.getId())
                 .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
@@ -205,6 +228,42 @@ public class BoardService {
                 task.getDueDate(),
                 task.getTags()
         );
+    }
+
+    private ActivityLogResponse toActivityResponse(ActivityLog log) {
+        Task task = log.getTask();
+        User actor = log.getActor();
+
+        Long taskId = task != null ? task.getId() : null;
+        String taskTitle = task != null ? task.getTitle() : null;
+        Long actorId = actor != null ? actor.getId() : null;
+        String actorDisplayName = actor != null ? actor.getDisplayName() : null;
+
+        return new ActivityLogResponse(
+                log.getId(),
+                log.getProject().getId(),
+                taskId,
+                taskTitle,
+                log.getActionType(),
+                log.getOldValue(),
+                log.getNewValue(),
+                actorId,
+                actorDisplayName,
+                log.getCreatedAt()
+        );
+    }
+
+    private void logActivity(Project project, Task task, ActivityActionType actionType,
+                             String oldValue, String newValue, User actor) {
+        ActivityLog log = new ActivityLog();
+        log.setProject(project);
+        log.setTask(task);
+        log.setActionType(actionType);
+        log.setOldValue(oldValue);
+        log.setNewValue(newValue);
+        log.setActor(actor);
+
+        activityLogRepository.save(log);
     }
 
     private TaskStatus mapColumnNameToStatus(String columnName) {
