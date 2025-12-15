@@ -134,6 +134,7 @@ public class BoardService {
 
         Task saved = taskRepository.save(task);
 
+        // Persist an audit trail entry for the newly created task including the actor and column context
         logActivity(project, saved, ActivityActionType.TASK_CREATED, null, column.getName(), currentUser);
 
         return toTaskResponse(saved);
@@ -165,6 +166,7 @@ public class BoardService {
 
         Task saved = taskRepository.save(task);
 
+        // Capture movement details (old/new column names) alongside the acting user
         logActivity(project, saved, ActivityActionType.TASK_MOVED, oldColumnName, targetColumn.getName(), currentUser);
 
         return toTaskResponse(saved);
@@ -239,6 +241,7 @@ public class BoardService {
         Long actorId = actor != null ? actor.getId() : null;
         String actorDisplayName = actor != null ? actor.getDisplayName() : null;
 
+        // Response mirrors persisted log values so the frontend can render a concise activity timeline
         return new ActivityLogResponse(
                 log.getId(),
                 log.getProject().getId(),
