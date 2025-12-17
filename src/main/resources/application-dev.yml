@@ -1,20 +1,49 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/remote_project_hub
-    username: postgres
-    password: oplm_4312
+    # Prefer environment variables so you don't commit secrets.
+    # See .env.example (copy to .env locally).
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/remote_project_hub}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:oplm_4312}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update   # dev only; auto create/update tables from entities
+      ddl-auto: update   # dev only
     properties:
       hibernate:
         format_sql: true
-    show-sql: true       # set true temporarily if you want SQL in logs
+    show-sql: true
 
 logging:
   level:
-  # Uncomment while debugging:
-  # org.hibernate.SQL: DEBUG
-   org.springframework.security: DEBUG
+    # org.hibernate.SQL: DEBUG
+    org.springframework.security: DEBUG
+
+security:
+  jwt:
+    # Demo default; override with JWT_SECRET
+    secret: ${JWT_SECRET:replace-with-a-long-secret-key-at-least-32-bytes}
+    validity-ms: ${JWT_VALIDITY_MS:86400000}
+
+
+#spring:
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/remote_project_hub
+#    username: postgres
+#    password: oplm_4312
+#    driver-class-name: org.postgresql.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update   # dev only; auto create/update tables from entities
+#    properties:
+#      hibernate:
+#        format_sql: true
+#    show-sql: true       # set true temporarily if you want SQL in logs
+#
+#logging:
+#  level:
+#  # Uncomment while debugging:
+#  # org.hibernate.SQL: DEBUG
+#   org.springframework.security: DEBUG

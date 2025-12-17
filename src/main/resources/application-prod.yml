@@ -1,6 +1,5 @@
 spring:
   datasource:
-    # In real prod, use environment variables or a secrets manager.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/remote_project_hub}
     username: ${DB_USERNAME:remote_hub_user}
     password: ${DB_PASSWORD:remote_hub_password}
@@ -8,14 +7,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate   # don't auto-change schema in prod
+      ddl-auto: validate # don't auto-change schema in prod
     properties:
       hibernate:
-        format_sql: false  # logs cleaner in prod
+        format_sql: false # logs cleaner in prod
     show-sql: false
-
-server:
-  port: ${PORT:8080}
 
 logging:
   level:
@@ -23,3 +19,8 @@ logging:
     org.springframework.web: INFO
     org.hibernate.SQL: WARN
     org.springframework.security: INFO
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    validity-ms: ${JWT_VALIDITY_MS:86400000}

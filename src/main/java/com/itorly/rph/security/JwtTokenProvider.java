@@ -2,8 +2,10 @@ package com.itorly.rph.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
@@ -11,13 +13,20 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    // For demo purposes only. In real life, load from config/env.
-    private final Key key = Keys.hmacShaKeyFor(
-            "replace-with-a-long-secret-key-at-least-32-bytes".getBytes()
-    );
+    private final Key key;
+    private final long validityInMillis;
 
-    // e.g. 24 hours
-    private final long validityInMillis = 24 * 60 * 60 * 1000L;
+    public JwtTokenProvider(
+            @Value("${security.jwt.secret}") String secret,
+            // 24 * 60 * 60 * 1000L
+            @Value("${security.jwt.validity-ms:86400000}") long validityInMillis
+    ) {
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalStateException("security.jwt.secret must be at least 32 bytes long (HS256)");
+        }
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.validityInMillis = validityInMillis;
+    }
 
     public String generateToken(Long userId, String email) {
         Instant now = Instant.now();

@@ -3,23 +3,19 @@ spring:
     name: remote-project-hub
 
   profiles:
-    # When no profile is specified, use "dev" by default
     default: dev
 
-server:
-  port: 8080
+  jackson:
+    time-zone: UTC
 
-# Global settings (apply to all profiles, including dev)
-jackson:
-  time-zone: UTC
+server:
+  port: ${PORT:8080}
+
+# Tip: override at runtime:
+# PORT=8081 ./gradlew bootRun
+
 
 ---
-
-#  jackson:
-#    time-zone: UTC        # ensure all JSON dates are in UTC
-
-#server:
-#  port: 8080
 
 #logging:
 #  level:
