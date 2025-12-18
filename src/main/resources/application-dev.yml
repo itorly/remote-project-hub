@@ -9,7 +9,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update   # dev only
+      ddl-auto: validate   # use Flyway for schema changes
     properties:
       hibernate:
         format_sql: true
