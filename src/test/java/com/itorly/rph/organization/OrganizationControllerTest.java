@@ -3,6 +3,7 @@ package com.itorly.rph.organization;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itorly.rph.organization.dto.CreateOrganizationRequest;
 import com.itorly.rph.organization.dto.OrganizationResponse;
+import com.itorly.rph.organization.dto.UpdateOrganizationRequest;
 import com.itorly.rph.security.CustomUserDetailsService;
 import com.itorly.rph.security.JwtTokenProvider;
 import org.junit.jupiter.api.Test;
@@ -17,9 +18,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -100,5 +104,40 @@ class OrganizationControllerTest {
                 .andExpect(jsonPath("$[1].id").value(20L))
                 .andExpect(jsonPath("$[1].name").value("Org Two"))
                 .andExpect(jsonPath("$[1].role").value("MEMBER"));
+    }
+
+    @Test
+    void updateOrganization_returnsUpdatedOrganization() throws Exception {
+        UpdateOrganizationRequest request = new UpdateOrganizationRequest();
+        request.setName("Updated Org");
+        request.setDescription("Updated description");
+
+        OrganizationResponse response = new OrganizationResponse(
+                10L,
+                "Updated Org",
+                "Updated description",
+                OrganizationRole.ADMIN
+        );
+
+        when(organizationService.updateOrganization(any(Long.class), any(UpdateOrganizationRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/organizations/{id}", 10L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(10L))
+                .andExpect(jsonPath("$.name").value("Updated Org"))
+                .andExpect(jsonPath("$.description").value("Updated description"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void deleteOrganization_returnsNoContent() throws Exception {
+        doNothing().when(organizationService).deleteOrganization(10L);
+
+        mockMvc.perform(delete("/api/organizations/{id}", 10L))
+                .andExpect(status().isNoContent());
     }
 }

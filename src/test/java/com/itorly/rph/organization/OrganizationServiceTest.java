@@ -1,8 +1,10 @@
 package com.itorly.rph.organization;
 
+import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.dto.CreateOrganizationRequest;
 import com.itorly.rph.organization.dto.OrganizationResponse;
+import com.itorly.rph.organization.dto.UpdateOrganizationRequest;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -280,6 +282,275 @@ class OrganizationServiceTest {
             assertEquals(OrganizationRole.MEMBER, r2.getRole());
 
             verify(memberRepository, times(1)).findByUserId(user.getId());
+        }
+    }
+
+    @Test
+    void updateOrganization_whenUserAuthorized_updatesAndReturnsResponse() {
+        String currentUserEmail = "admin@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(7L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(123L);
+            org.setName("Old Name");
+            org.setDescription("Old description");
+            org.setOwner(user);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember membership = new OrganizationMember();
+            membership.setOrganization(org);
+            membership.setUser(user);
+            membership.setRole(OrganizationRole.ADMIN);
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.of(membership));
+
+            UpdateOrganizationRequest request = new UpdateOrganizationRequest();
+            request.setName("Updated Name");
+            request.setDescription("Updated description");
+
+            when(organizationRepository.save(any(Organization.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            OrganizationResponse response = organizationService.updateOrganization(org.getId(), request);
+
+            assertEquals(org.getId(), response.getId());
+            assertEquals("Updated Name", response.getName());
+            assertEquals("Updated description", response.getDescription());
+            assertEquals(OrganizationRole.ADMIN, response.getRole());
+
+            assertEquals("Updated Name", org.getName());
+            assertEquals("Updated description", org.getDescription());
+
+            verify(organizationRepository, times(1)).save(org);
+        }
+    }
+
+    @Test
+    void updateOrganization_whenOrganizationMissing_throwsEntityNotFound() {
+        String currentUserEmail = "admin@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(7L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            when(organizationRepository.findById(999L))
+                    .thenReturn(Optional.empty());
+
+            UpdateOrganizationRequest request = new UpdateOrganizationRequest();
+            request.setName("Updated");
+            request.setDescription("Desc");
+
+            EntityNotFoundException ex = assertThrows(
+                    EntityNotFoundException.class,
+                    () -> organizationService.updateOrganization(999L, request)
+            );
+
+            assertTrue(ex.getMessage().contains("Organization not found"));
+            verifyNoInteractions(memberRepository);
+        }
+    }
+
+    @Test
+    void updateOrganization_whenUserNotMember_throwsForbidden() {
+        String currentUserEmail = "admin@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(7L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(123L);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.empty());
+
+            UpdateOrganizationRequest request = new UpdateOrganizationRequest();
+            request.setName("Updated");
+            request.setDescription("Desc");
+
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
+                    () -> organizationService.updateOrganization(org.getId(), request)
+            );
+
+            assertTrue(ex.getMessage().contains("User is not a member"));
+            verify(organizationRepository, times(1)).findById(org.getId());
+        }
+    }
+
+    @Test
+    void updateOrganization_whenRoleNotAllowed_throwsForbidden() {
+        String currentUserEmail = "member@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(8L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(321L);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember membership = new OrganizationMember();
+            membership.setOrganization(org);
+            membership.setUser(user);
+            membership.setRole(OrganizationRole.MEMBER);
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.of(membership));
+
+            UpdateOrganizationRequest request = new UpdateOrganizationRequest();
+            request.setName("Updated");
+            request.setDescription("Desc");
+
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
+                    () -> organizationService.updateOrganization(org.getId(), request)
+            );
+
+            assertTrue(ex.getMessage().contains("not allowed to update"));
+            verify(organizationRepository, times(1)).findById(org.getId());
+            verify(memberRepository, times(1)).findByOrganizationIdAndUserId(org.getId(), user.getId());
+        }
+    }
+
+    @Test
+    void deleteOrganization_whenOwner_deletes() {
+        String currentUserEmail = "owner@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(9L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(456L);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember membership = new OrganizationMember();
+            membership.setOrganization(org);
+            membership.setUser(user);
+            membership.setRole(OrganizationRole.OWNER);
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.of(membership));
+
+            organizationService.deleteOrganization(org.getId());
+
+            verify(organizationRepository, times(1)).delete(org);
+        }
+    }
+
+    @Test
+    void deleteOrganization_whenNotMember_throwsForbidden() {
+        String currentUserEmail = "user@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(10L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(789L);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.empty());
+
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
+                    () -> organizationService.deleteOrganization(org.getId())
+            );
+
+            assertTrue(ex.getMessage().contains("User is not a member"));
+            verify(organizationRepository, never()).delete(any());
+        }
+    }
+
+    @Test
+    void deleteOrganization_whenNotOwner_throwsForbidden() {
+        String currentUserEmail = "admin@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(11L);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(999L);
+
+            when(organizationRepository.findById(org.getId()))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember membership = new OrganizationMember();
+            membership.setOrganization(org);
+            membership.setUser(user);
+            membership.setRole(OrganizationRole.ADMIN);
+
+            when(memberRepository.findByOrganizationIdAndUserId(org.getId(), user.getId()))
+                    .thenReturn(Optional.of(membership));
+
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
+                    () -> organizationService.deleteOrganization(org.getId())
+            );
+
+            assertTrue(ex.getMessage().contains("Only owners"));
+            verify(organizationRepository, never()).delete(any());
         }
     }
 }

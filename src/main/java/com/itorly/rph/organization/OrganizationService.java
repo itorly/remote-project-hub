@@ -1,8 +1,10 @@
 package com.itorly.rph.organization;
 
+import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.dto.CreateOrganizationRequest;
 import com.itorly.rph.organization.dto.OrganizationResponse;
+import com.itorly.rph.organization.dto.UpdateOrganizationRequest;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -32,13 +34,7 @@ public class OrganizationService {
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
-        String email = SecurityUtils.getCurrentUserEmail();
-        if (email == null) {
-            throw new UnauthorizedException("No authenticated user");
-        }
-
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        User currentUser = getCurrentUserOrThrow();
 
         Organization org = new Organization();
         org.setName(request.getName());
@@ -66,13 +62,7 @@ public class OrganizationService {
 
     @Transactional(readOnly = true)
     public List<OrganizationResponse> getMyOrganizations() {
-        String email = SecurityUtils.getCurrentUserEmail();
-        if (email == null) {
-            throw new UnauthorizedException("No authenticated user");
-        }
-
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        User currentUser = getCurrentUserOrThrow();
 
         List<OrganizationMember> memberships = memberRepository.findByUserId(currentUser.getId());
 
@@ -87,6 +77,62 @@ public class OrganizationService {
                     );
                 })
                 .toList();
+    }
+
+    @Transactional
+    public OrganizationResponse updateOrganization(Long organizationId, UpdateOrganizationRequest request) {
+        User currentUser = getCurrentUserOrThrow();
+
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        OrganizationMember membership = memberRepository
+                .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
+
+        if (membership.getRole() != OrganizationRole.OWNER && membership.getRole() != OrganizationRole.ADMIN) {
+            throw new ForbiddenException("User is not allowed to update this organization");
+        }
+
+        org.setName(request.getName());
+        org.setDescription(request.getDescription());
+
+        Organization saved = organizationRepository.save(org);
+
+        return new OrganizationResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getDescription(),
+                membership.getRole()
+        );
+    }
+
+    @Transactional
+    public void deleteOrganization(Long organizationId) {
+        User currentUser = getCurrentUserOrThrow();
+
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        OrganizationMember membership = memberRepository
+                .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
+
+        if (membership.getRole() != OrganizationRole.OWNER) {
+            throw new ForbiddenException("Only owners can delete the organization");
+        }
+
+        organizationRepository.delete(org);
+    }
+
+    private User getCurrentUserOrThrow() {
+        String email = SecurityUtils.getCurrentUserEmail();
+        if (email == null) {
+            throw new UnauthorizedException("No authenticated user");
+        }
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
     }
 }
 
