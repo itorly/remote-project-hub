@@ -239,6 +239,169 @@ class ProjectServiceTest {
         }
     }
 
+    @Test
+    void updateProject_whenUserIsAdmin_updatesProject() {
+        Long orgId = 1L;
+        Long projectId = 55L;
+        String currentUserEmail = "admin@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(orgId);
+
+            when(organizationRepository.findById(orgId))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setOrganization(org);
+            member.setUser(user);
+            member.setRole(OrganizationRole.ADMIN);
+
+            when(memberRepository.findByOrganizationIdAndUserId(orgId, user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setName("Old");
+            project.setDescription("Old desc");
+            project.setStatus(ProjectStatus.ACTIVE);
+            project.setOrganization(org);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            Project saved = new Project();
+            saved.setId(projectId);
+            saved.setName("Updated Project");
+            saved.setDescription("Updated description");
+            saved.setStatus(ProjectStatus.ARCHIVED);
+            saved.setOrganization(org);
+
+            when(projectRepository.save(any(Project.class)))
+                    .thenReturn(saved);
+
+            var request = new com.itorly.rph.project.dto.UpdateProjectRequest();
+            request.setName("Updated Project");
+            request.setDescription("Updated description");
+            request.setStatus(ProjectStatus.ARCHIVED);
+
+            var response = projectService.updateProject(orgId, projectId, request);
+
+            assertEquals(projectId, response.getId());
+            assertEquals("Updated Project", response.getName());
+            assertEquals("Updated description", response.getDescription());
+            assertEquals(ProjectStatus.ARCHIVED, response.getStatus());
+            assertEquals(orgId, response.getOrganizationId());
+
+            verify(projectRepository).save(project);
+        }
+    }
+
+    @Test
+    void deleteProject_whenProjectNotInOrganization_throwsForbidden() {
+        Long orgId = 1L;
+        Long projectId = 99L;
+        String currentUserEmail = "owner@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(orgId);
+
+            when(organizationRepository.findById(orgId))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setOrganization(org);
+            member.setUser(user);
+            member.setRole(OrganizationRole.OWNER);
+
+            when(memberRepository.findByOrganizationIdAndUserId(orgId, user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            Organization otherOrg = new Organization();
+            otherOrg.setId(2L);
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setOrganization(otherOrg);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            ForbiddenException ex = assertThrows(
+                    ForbiddenException.class,
+                    () -> projectService.deleteProject(orgId, projectId)
+            );
+
+            assertEquals("Project does not belong to this organization", ex.getMessage());
+            verify(projectRepository, never()).delete(any(Project.class));
+        }
+    }
+
+    @Test
+    void deleteProject_whenAuthorized_deletesProject() {
+        Long orgId = 1L;
+        Long projectId = 101L;
+        String currentUserEmail = "owner@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization org = new Organization();
+            org.setId(orgId);
+
+            when(organizationRepository.findById(orgId))
+                    .thenReturn(Optional.of(org));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setOrganization(org);
+            member.setUser(user);
+            member.setRole(OrganizationRole.OWNER);
+
+            when(memberRepository.findByOrganizationIdAndUserId(orgId, user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setOrganization(org);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            projectService.deleteProject(orgId, projectId);
+
+            verify(projectRepository).delete(project);
+        }
+    }
+
 
 
 }
