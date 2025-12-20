@@ -5,6 +5,7 @@ import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.*;
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
+import com.itorly.rph.project.dto.UpdateProjectRequest;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -93,6 +94,68 @@ public class ProjectService {
                         org.getId()
                 ))
                 .toList();
+    }
+
+    @Transactional
+    public ProjectResponse updateProject(Long organizationId, Long projectId, UpdateProjectRequest request) {
+        User currentUser = getCurrentUserOrThrow();
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        OrganizationMember membership = memberRepository
+                .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
+
+        if (membership.getRole() != OrganizationRole.OWNER &&
+                membership.getRole() != OrganizationRole.ADMIN) {
+            throw new ForbiddenException("User is not allowed to update projects for this organization");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new EntityNotFoundException("Project not found"));
+
+        if (!project.getOrganization().getId().equals(org.getId())) {
+            throw new ForbiddenException("Project does not belong to this organization");
+        }
+
+        project.setName(request.getName());
+        project.setDescription(request.getDescription());
+        project.setStatus(request.getStatus());
+
+        Project saved = projectRepository.save(project);
+
+        return new ProjectResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getDescription(),
+                saved.getStatus(),
+                org.getId()
+        );
+    }
+
+    @Transactional
+    public void deleteProject(Long organizationId, Long projectId) {
+        User currentUser = getCurrentUserOrThrow();
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organization not found"));
+
+        OrganizationMember membership = memberRepository
+                .findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
+
+        if (membership.getRole() != OrganizationRole.OWNER &&
+                membership.getRole() != OrganizationRole.ADMIN) {
+            throw new ForbiddenException("User is not allowed to delete projects for this organization");
+        }
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new EntityNotFoundException("Project not found"));
+
+        if (!project.getOrganization().getId().equals(org.getId())) {
+            throw new ForbiddenException("Project does not belong to this organization");
+        }
+
+        projectRepository.delete(project);
     }
 
     private User getCurrentUserOrThrow() {

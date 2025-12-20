@@ -2,6 +2,7 @@ package com.itorly.rph.project;
 
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
+import com.itorly.rph.project.dto.UpdateProjectRequest;
 import com.itorly.rph.security.CustomUserDetailsService;
 import com.itorly.rph.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +22,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(
@@ -111,5 +114,45 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$[1].id").value(11L))
                 .andExpect(jsonPath("$[1].name").value("Second Project"))
                 .andExpect(jsonPath("$[1].organizationId").value(orgId));
+    }
+
+    @Test
+    void updateProject_returnsUpdatedProject() throws Exception {
+        Long orgId = 1L;
+        Long projectId = 10L;
+
+        UpdateProjectRequest request = new UpdateProjectRequest();
+        request.setName("Updated Project");
+        request.setDescription("Updated description");
+        request.setStatus(ProjectStatus.ARCHIVED);
+
+        ProjectResponse response = new ProjectResponse(
+                projectId,
+                "Updated Project",
+                "Updated description",
+                ProjectStatus.ARCHIVED,
+                orgId
+        );
+
+        when(projectService.updateProject(eq(orgId), eq(projectId), any(UpdateProjectRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/organizations/{organizationId}/projects/{projectId}", orgId, projectId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(projectId))
+                .andExpect(jsonPath("$.name").value("Updated Project"))
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+    }
+
+    @Test
+    void deleteProject_returnsNoContent() throws Exception {
+        Long orgId = 1L;
+        Long projectId = 10L;
+
+        mockMvc.perform(delete("/api/organizations/{organizationId}/projects/{projectId}", orgId, projectId))
+                .andExpect(status().isNoContent());
     }
 }

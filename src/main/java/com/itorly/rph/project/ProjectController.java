@@ -2,6 +2,7 @@ package com.itorly.rph.project;
 
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
+import com.itorly.rph.project.dto.UpdateProjectRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,5 +34,24 @@ public class ProjectController {
     ) {
         List<ProjectResponse> projects = projectService.getProjectsForOrganization(organizationId);
         return ResponseEntity.ok(projects);
+    }
+
+    @PutMapping("/{projectId}")
+    public ResponseEntity<ProjectResponse> updateProject(
+            @PathVariable Long organizationId,
+            @PathVariable Long projectId,
+            @Valid @RequestBody UpdateProjectRequest request
+    ) {
+        ProjectResponse response = projectService.updateProject(organizationId, projectId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{projectId}")
+    public ResponseEntity<Void> deleteProject(
+            @PathVariable Long organizationId,
+            @PathVariable Long projectId
+    ) {
+        projectService.deleteProject(organizationId, projectId);
+        return ResponseEntity.noContent().build();
     }
 }
