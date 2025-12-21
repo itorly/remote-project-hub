@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -86,6 +87,28 @@ class BoardControllerTest {
     }
 
     @Test
+    void getColumn_returnsColumnResponse() throws Exception {
+        Long projectId = 5L;
+        Long columnId = 20L;
+
+        BoardColumnResponse columnResponse = new BoardColumnResponse(
+                columnId,
+                "In Progress",
+                1,
+                List.of()
+        );
+
+        when(boardService.getColumn(projectId, columnId)).thenReturn(columnResponse);
+
+        mockMvc.perform(get("/api/projects/{projectId}/columns/{columnId}", projectId, columnId))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(columnId))
+                .andExpect(jsonPath("$.name").value("In Progress"))
+                .andExpect(jsonPath("$.position").value(1));
+    }
+
+    @Test
     void createColumn_returnsColumnResponse() throws Exception {
         Long projectId = 5L;
 
@@ -106,6 +129,39 @@ class BoardControllerTest {
                 .andExpect(jsonPath("$.id").value(30L))
                 .andExpect(jsonPath("$.name").value("Done"))
                 .andExpect(jsonPath("$.position").value(2));
+    }
+
+    @Test
+    void updateColumn_returnsUpdatedResponse() throws Exception {
+        Long projectId = 5L;
+        Long columnId = 20L;
+
+        UpdateColumnRequest request = new UpdateColumnRequest();
+        request.setName("QA");
+        request.setPosition(3);
+
+        BoardColumnResponse columnResponse = new BoardColumnResponse(columnId, "QA", 3, List.of());
+
+        when(boardService.updateColumn(eq(projectId), eq(columnId), any(UpdateColumnRequest.class)))
+                .thenReturn(columnResponse);
+
+        mockMvc.perform(patch("/api/projects/{projectId}/columns/{columnId}", projectId, columnId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(columnId))
+                .andExpect(jsonPath("$.name").value("QA"))
+                .andExpect(jsonPath("$.position").value(3));
+    }
+
+    @Test
+    void deleteColumn_returnsNoContent() throws Exception {
+        Long projectId = 5L;
+        Long columnId = 20L;
+
+        mockMvc.perform(delete("/api/projects/{projectId}/columns/{columnId}", projectId, columnId))
+                .andExpect(status().isNoContent());
     }
 
     @Test
