@@ -4,9 +4,11 @@ import com.itorly.rph.organization.Organization;
 import com.itorly.rph.organization.OrganizationMember;
 import com.itorly.rph.organization.OrganizationMemberRepository;
 import com.itorly.rph.project.dto.ActivityLogResponse;
+import com.itorly.rph.project.dto.BoardColumnResponse;
 import com.itorly.rph.project.dto.CreateTaskRequest;
 import com.itorly.rph.project.dto.MoveTaskRequest;
 import com.itorly.rph.project.dto.TaskResponse;
+import com.itorly.rph.project.dto.UpdateColumnRequest;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -59,6 +61,69 @@ class BoardServiceTest {
                 memberRepository,
                 userRepository
         );
+    }
+
+    @Test
+    void getColumn_returnsTasksForAuthorizedProject() {
+        Long projectId = 1L;
+        Long columnId = 10L;
+        String currentUserEmail = "user@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+            user.setDisplayName("User");
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization organization = new Organization();
+            organization.setId(200L);
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setOrganization(organization);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setId(300L);
+            member.setUser(user);
+            member.setOrganization(organization);
+
+            when(memberRepository.findByOrganizationIdAndUserId(organization.getId(), user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            BoardColumn column = new BoardColumn();
+            column.setId(columnId);
+            column.setName("Todo");
+            column.setPosition(0);
+            column.setProject(project);
+
+            when(boardColumnRepository.findById(columnId))
+                    .thenReturn(Optional.of(column));
+
+            Task task = new Task();
+            task.setId(400L);
+            task.setTitle("Investigate bug");
+            task.setProject(project);
+            task.setColumn(column);
+            task.setStatus(TaskStatus.TODO);
+
+            when(taskRepository.findByColumnIdOrderByIdAsc(columnId))
+                    .thenReturn(List.of(task));
+
+            BoardColumnResponse response = boardService.getColumn(projectId, columnId);
+
+            assertEquals(columnId, response.getId());
+            assertEquals(1, response.getTasks().size());
+            assertEquals(task.getId(), response.getTasks().get(0).getId());
+        }
     }
 
     @Test
@@ -221,6 +286,118 @@ class BoardServiceTest {
             assertEquals(targetColumn.getName(), captured.getNewValue());
             assertEquals(user, captured.getActor());
             assertEquals(task, captured.getTask());
+        }
+    }
+
+    @Test
+    void updateColumn_updatesNameAndPosition() {
+        Long projectId = 1L;
+        Long columnId = 2L;
+        String currentUserEmail = "user@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization organization = new Organization();
+            organization.setId(200L);
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setOrganization(organization);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setId(300L);
+            member.setUser(user);
+            member.setOrganization(organization);
+
+            when(memberRepository.findByOrganizationIdAndUserId(organization.getId(), user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            BoardColumn column = new BoardColumn();
+            column.setId(columnId);
+            column.setProject(project);
+            column.setName("Todo");
+            column.setPosition(0);
+
+            when(boardColumnRepository.findById(columnId)).thenReturn(Optional.of(column));
+
+            when(boardColumnRepository.save(any(BoardColumn.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            when(taskRepository.findByColumnIdOrderByIdAsc(columnId))
+                    .thenReturn(List.of());
+
+            UpdateColumnRequest request = new UpdateColumnRequest();
+            request.setName("Review");
+            request.setPosition(2);
+
+            BoardColumnResponse response = boardService.updateColumn(projectId, columnId, request);
+
+            assertEquals("Review", response.getName());
+            assertEquals(2, response.getPosition());
+
+            ArgumentCaptor<BoardColumn> captor = ArgumentCaptor.forClass(BoardColumn.class);
+            verify(boardColumnRepository).save(captor.capture());
+            assertEquals("Review", captor.getValue().getName());
+            assertEquals(2, captor.getValue().getPosition());
+        }
+    }
+
+    @Test
+    void deleteColumn_removesColumnForAuthorizedProject() {
+        Long projectId = 1L;
+        Long columnId = 2L;
+        String currentUserEmail = "user@example.com";
+
+        try (MockedStatic<SecurityUtils> mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getCurrentUserEmail)
+                    .thenReturn(currentUserEmail);
+
+            User user = new User();
+            user.setId(100L);
+            user.setEmail(currentUserEmail);
+
+            when(userRepository.findByEmail(currentUserEmail))
+                    .thenReturn(Optional.of(user));
+
+            Organization organization = new Organization();
+            organization.setId(200L);
+
+            Project project = new Project();
+            project.setId(projectId);
+            project.setOrganization(organization);
+
+            when(projectRepository.findById(projectId))
+                    .thenReturn(Optional.of(project));
+
+            OrganizationMember member = new OrganizationMember();
+            member.setId(300L);
+            member.setUser(user);
+            member.setOrganization(organization);
+
+            when(memberRepository.findByOrganizationIdAndUserId(organization.getId(), user.getId()))
+                    .thenReturn(Optional.of(member));
+
+            BoardColumn column = new BoardColumn();
+            column.setId(columnId);
+            column.setProject(project);
+
+            when(boardColumnRepository.findById(columnId)).thenReturn(Optional.of(column));
+
+            boardService.deleteColumn(projectId, columnId);
+
+            verify(boardColumnRepository).delete(column);
         }
     }
 

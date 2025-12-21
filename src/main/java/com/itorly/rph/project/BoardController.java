@@ -23,6 +23,15 @@ public class BoardController {
         return ResponseEntity.ok(board);
     }
 
+    @GetMapping("/columns/{columnId}")
+    public ResponseEntity<BoardColumnResponse> getColumn(
+            @PathVariable Long projectId,
+            @PathVariable Long columnId
+    ) {
+        BoardColumnResponse response = boardService.getColumn(projectId, columnId);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/columns")
     public ResponseEntity<BoardColumnResponse> createColumn(
             @PathVariable Long projectId,
@@ -30,6 +39,25 @@ public class BoardController {
     ) {
         BoardColumnResponse response = boardService.createColumn(projectId, request);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/columns/{columnId}")
+    public ResponseEntity<BoardColumnResponse> updateColumn(
+            @PathVariable Long projectId,
+            @PathVariable Long columnId,
+            @Valid @RequestBody UpdateColumnRequest request
+    ) {
+        BoardColumnResponse response = boardService.updateColumn(projectId, columnId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/columns/{columnId}")
+    public ResponseEntity<Void> deleteColumn(
+            @PathVariable Long projectId,
+            @PathVariable Long columnId
+    ) {
+        boardService.deleteColumn(projectId, columnId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/tasks")

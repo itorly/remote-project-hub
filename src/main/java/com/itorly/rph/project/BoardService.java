@@ -72,6 +72,30 @@ public class BoardService {
         return new BoardResponse(project.getId(), project.getName(), columnResponses);
     }
 
+    @Transactional(readOnly = true)
+    public BoardColumnResponse getColumn(Long projectId, Long columnId) {
+        Project project = getAuthorizedProject(projectId);
+
+        BoardColumn column = boardColumnRepository.findById(columnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found"));
+
+        if (!Objects.equals(column.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Column does not belong to this project");
+        }
+
+        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByIdAsc(columnId)
+                .stream()
+                .map(this::toTaskResponse)
+                .toList();
+
+        return new BoardColumnResponse(
+                column.getId(),
+                column.getName(),
+                column.getPosition(),
+                taskResponses
+        );
+    }
+
     @Transactional
     public BoardColumnResponse createColumn(Long projectId, CreateColumnRequest request) {
         Project project = getAuthorizedProject(projectId);
@@ -101,6 +125,54 @@ public class BoardService {
                 saved.getPosition(),
                 List.of()
         );
+    }
+
+    @Transactional
+    public BoardColumnResponse updateColumn(Long projectId, Long columnId, UpdateColumnRequest request) {
+        Project project = getAuthorizedProject(projectId);
+
+        BoardColumn column = boardColumnRepository.findById(columnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found"));
+
+        if (!Objects.equals(column.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Column does not belong to this project");
+        }
+
+        if (request.getName() != null) {
+            column.setName(request.getName());
+        }
+
+        if (request.getPosition() != null) {
+            column.setPosition(request.getPosition());
+        }
+
+        BoardColumn saved = boardColumnRepository.save(column);
+
+        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByIdAsc(saved.getId())
+                .stream()
+                .map(this::toTaskResponse)
+                .toList();
+
+        return new BoardColumnResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getPosition(),
+                taskResponses
+        );
+    }
+
+    @Transactional
+    public void deleteColumn(Long projectId, Long columnId) {
+        Project project = getAuthorizedProject(projectId);
+
+        BoardColumn column = boardColumnRepository.findById(columnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found"));
+
+        if (!Objects.equals(column.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Column does not belong to this project");
+        }
+
+        boardColumnRepository.delete(column);
     }
 
     @Transactional
