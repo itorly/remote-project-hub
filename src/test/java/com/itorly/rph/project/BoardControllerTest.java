@@ -237,6 +237,53 @@ class BoardControllerTest {
     }
 
     @Test
+    void updateTask_returnsUpdatedTaskResponse() throws Exception {
+        Long projectId = 5L;
+        Long taskId = 101L;
+
+        UpdateTaskRequest request = new UpdateTaskRequest();
+        request.setTitle("Refine API");
+        request.setDescription("Tighten validation rules");
+        request.setAssigneeId(500L);
+        request.setDueDate(Instant.parse("2024-09-20T00:00:00Z"));
+        request.setTags("backend,validation");
+
+        TaskResponse updatedTask = new TaskResponse(
+                taskId,
+                20L,
+                "Refine API",
+                "Tighten validation rules",
+                TaskStatus.REVIEW,
+                500L,
+                "Jordan", 
+                Instant.parse("2024-09-20T00:00:00Z"),
+                "backend,validation"
+        );
+
+        when(boardService.updateTask(eq(projectId), eq(taskId), any(UpdateTaskRequest.class)))
+                .thenReturn(updatedTask);
+
+        mockMvc.perform(patch("/api/projects/{projectId}/tasks/{taskId}", projectId, taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(taskId))
+                .andExpect(jsonPath("$.title").value("Refine API"))
+                .andExpect(jsonPath("$.assigneeId").value(500L))
+                .andExpect(jsonPath("$.status").value("REVIEW"));
+    }
+
+    @Test
+    void deleteTask_returnsNoContent() throws Exception {
+        Long projectId = 5L;
+        Long taskId = 101L;
+
+        mockMvc.perform(delete("/api/projects/{projectId}/tasks/{taskId}", projectId, taskId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void getActivity_returnsActivityLog() throws Exception {
         Long projectId = 5L;
 
