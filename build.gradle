@@ -40,6 +40,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    // Added H2 as a test dependency to provide an in-memory database during automated test runs.
+    testImplementation 'com.h2database:h2:2.2.224'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
