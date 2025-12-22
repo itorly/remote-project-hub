@@ -12,6 +12,7 @@ import com.itorly.rph.user.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -244,6 +245,77 @@ public class BoardService {
         return toTaskResponse(saved);
     }
 
+    @Transactional
+    public TaskResponse updateTask(Long projectId, Long taskId, UpdateTaskRequest request) {
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Task not found"));
+
+        if (!Objects.equals(task.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Task does not belong to this project");
+        }
+
+        String oldSnapshot = summarizeTask(task);
+
+        if (request.getTitle() != null) {
+            if (!StringUtils.hasText(request.getTitle())) {
+                throw new BadRequestException("Title cannot be blank");
+            }
+            task.setTitle(request.getTitle());
+        }
+
+        if (request.getDescription() != null) {
+            task.setDescription(request.getDescription());
+        }
+
+        if (request.getDueDate() != null) {
+            task.setDueDate(request.getDueDate());
+        } else if (Boolean.TRUE.equals(request.getClearDueDate())) {
+            task.setDueDate(null);
+        }
+
+        if (request.getTags() != null) {
+            task.setTags(request.getTags());
+        } else if (Boolean.TRUE.equals(request.getClearTags())) {
+            task.setTags(null);
+        }
+
+        if (request.getAssigneeId() != null) {
+            User assignee = userRepository.findById(request.getAssigneeId())
+                    .orElseThrow(() -> new EntityNotFoundException("Assignee not found"));
+            task.setAssignee(assignee);
+        } else if (Boolean.TRUE.equals(request.getClearAssignee())) {
+            task.setAssignee(null);
+        }
+
+        Task saved = taskRepository.save(task);
+
+        logActivity(project, saved, ActivityActionType.TASK_UPDATED, oldSnapshot, summarizeTask(saved), currentUser);
+
+        return toTaskResponse(saved);
+    }
+
+    @Transactional
+    public void deleteTask(Long projectId, Long taskId) {
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Task not found"));
+
+        if (!Objects.equals(task.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Task does not belong to this project");
+        }
+
+        String snapshot = summarizeTask(task);
+
+        logActivity(project, task, ActivityActionType.TASK_DELETED, snapshot, null, currentUser);
+
+        taskRepository.delete(task);
+    }
+
     @Transactional(readOnly = true)
     public List<ActivityLogResponse> getActivity(Long projectId) {
         Project project = getAuthorizedProject(projectId);
@@ -350,5 +422,15 @@ public class BoardService {
             case "done" -> TaskStatus.DONE;
             default -> TaskStatus.TODO;
         };
+    }
+
+    private String summarizeTask(Task task) {
+        Long assigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+        return "title='" + task.getTitle() + '\'' +
+                ", description='" + Objects.toString(task.getDescription(), "") + '\'' +
+                ", assigneeId=" + assigneeId +
+                ", dueDate=" + task.getDueDate() +
+                ", tags='" + Objects.toString(task.getTags(), "") + '\'' +
+                ", status=" + task.getStatus();
     }
 }

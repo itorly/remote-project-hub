@@ -69,6 +69,16 @@ public class BoardController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/tasks/{taskId}")
+    public ResponseEntity<TaskResponse> updateTask(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody UpdateTaskRequest request
+    ) {
+        TaskResponse response = boardService.updateTask(projectId, taskId, request);
+        return ResponseEntity.ok(response);
+    }
+
     @PatchMapping("/tasks/{taskId}/move")
     public ResponseEntity<TaskResponse> moveTask(
             @PathVariable Long projectId,
@@ -77,6 +87,15 @@ public class BoardController {
     ) {
         TaskResponse response = boardService.moveTask(projectId, taskId, request);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/tasks/{taskId}")
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId
+    ) {
+        boardService.deleteTask(projectId, taskId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/activity")
