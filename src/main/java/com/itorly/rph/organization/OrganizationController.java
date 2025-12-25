@@ -35,7 +35,7 @@ public class OrganizationController {
 
     @PutMapping("/{id}")
     public ResponseEntity<OrganizationResponse> updateOrganization(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody UpdateOrganizationRequest request
     ) {
         OrganizationResponse updated = organizationService.updateOrganization(id, request);
@@ -43,7 +43,7 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteOrganization(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteOrganization(@PathVariable("id") Long id) {
         organizationService.deleteOrganization(id);
         return ResponseEntity.noContent().build();
     }

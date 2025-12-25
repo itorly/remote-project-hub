@@ -10,7 +10,11 @@ description = 'remote-project-hub'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        // Use the available JDK on the build agent. Spring Boot 3.5 supports
+        // Java 21, so aligning the toolchain with the installed version avoids
+        // Gradle attempting (and failing) to download Java 17 in restricted
+        // environments.
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
