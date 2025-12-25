@@ -21,7 +21,7 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(
-            @PathVariable Long organizationId,
+            @PathVariable("organizationId") Long organizationId,
             @Valid @RequestBody CreateProjectRequest request
     ) {
         ProjectResponse response = projectService.createProject(organizationId, request);
@@ -30,7 +30,7 @@ public class ProjectController {
 
     @GetMapping
     public ResponseEntity<List<ProjectResponse>> getProjects(
-            @PathVariable Long organizationId
+            @PathVariable("organizationId") Long organizationId
     ) {
         List<ProjectResponse> projects = projectService.getProjectsForOrganization(organizationId);
         return ResponseEntity.ok(projects);
@@ -38,8 +38,8 @@ public class ProjectController {
 
     @PutMapping("/{projectId}")
     public ResponseEntity<ProjectResponse> updateProject(
-            @PathVariable Long organizationId,
-            @PathVariable Long projectId,
+            @PathVariable("organizationId") Long organizationId,
+            @PathVariable("projectId") Long projectId,
             @Valid @RequestBody UpdateProjectRequest request
     ) {
         ProjectResponse response = projectService.updateProject(organizationId, projectId, request);
@@ -48,8 +48,8 @@ public class ProjectController {
 
     @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> deleteProject(
-            @PathVariable Long organizationId,
-            @PathVariable Long projectId
+            @PathVariable("organizationId") Long organizationId,
+            @PathVariable("projectId") Long projectId
     ) {
         projectService.deleteProject(organizationId, projectId);
         return ResponseEntity.noContent().build();

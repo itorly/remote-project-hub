@@ -18,15 +18,15 @@ public class BoardController {
     }
 
     @GetMapping("/board")
-    public ResponseEntity<BoardResponse> getBoard(@PathVariable Long projectId) {
+    public ResponseEntity<BoardResponse> getBoard(@PathVariable("projectId") Long projectId) {
         BoardResponse board = boardService.getBoard(projectId);
         return ResponseEntity.ok(board);
     }
 
     @GetMapping("/columns/{columnId}")
     public ResponseEntity<BoardColumnResponse> getColumn(
-            @PathVariable Long projectId,
-            @PathVariable Long columnId
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("columnId") Long columnId
     ) {
         BoardColumnResponse response = boardService.getColumn(projectId, columnId);
         return ResponseEntity.ok(response);
@@ -34,7 +34,7 @@ public class BoardController {
 
     @PostMapping("/columns")
     public ResponseEntity<BoardColumnResponse> createColumn(
-            @PathVariable Long projectId,
+            @PathVariable("projectId") Long projectId,
             @Valid @RequestBody CreateColumnRequest request
     ) {
         BoardColumnResponse response = boardService.createColumn(projectId, request);
@@ -43,8 +43,8 @@ public class BoardController {
 
     @PatchMapping("/columns/{columnId}")
     public ResponseEntity<BoardColumnResponse> updateColumn(
-            @PathVariable Long projectId,
-            @PathVariable Long columnId,
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("columnId") Long columnId,
             @Valid @RequestBody UpdateColumnRequest request
     ) {
         BoardColumnResponse response = boardService.updateColumn(projectId, columnId, request);
@@ -53,8 +53,8 @@ public class BoardController {
 
     @DeleteMapping("/columns/{columnId}")
     public ResponseEntity<Void> deleteColumn(
-            @PathVariable Long projectId,
-            @PathVariable Long columnId
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("columnId") Long columnId
     ) {
         boardService.deleteColumn(projectId, columnId);
         return ResponseEntity.noContent().build();
@@ -62,7 +62,7 @@ public class BoardController {
 
     @PostMapping("/tasks")
     public ResponseEntity<TaskResponse> createTask(
-            @PathVariable Long projectId,
+            @PathVariable("projectId") Long projectId,
             @Valid @RequestBody CreateTaskRequest request
     ) {
         TaskResponse response = boardService.createTask(projectId, request);
@@ -71,8 +71,8 @@ public class BoardController {
 
     @PatchMapping("/tasks/{taskId}")
     public ResponseEntity<TaskResponse> updateTask(
-            @PathVariable Long projectId,
-            @PathVariable Long taskId,
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("taskId") Long taskId,
             @Valid @RequestBody UpdateTaskRequest request
     ) {
         TaskResponse response = boardService.updateTask(projectId, taskId, request);
@@ -81,8 +81,8 @@ public class BoardController {
 
     @PatchMapping("/tasks/{taskId}/move")
     public ResponseEntity<TaskResponse> moveTask(
-            @PathVariable Long projectId,
-            @PathVariable Long taskId,
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("taskId") Long taskId,
             @Valid @RequestBody MoveTaskRequest request
     ) {
         TaskResponse response = boardService.moveTask(projectId, taskId, request);
@@ -91,15 +91,15 @@ public class BoardController {
 
     @DeleteMapping("/tasks/{taskId}")
     public ResponseEntity<Void> deleteTask(
-            @PathVariable Long projectId,
-            @PathVariable Long taskId
+            @PathVariable("projectId") Long projectId,
+            @PathVariable("taskId") Long taskId
     ) {
         boardService.deleteTask(projectId, taskId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/activity")
-    public ResponseEntity<List<ActivityLogResponse>> getActivity(@PathVariable Long projectId) {
+    public ResponseEntity<List<ActivityLogResponse>> getActivity(@PathVariable("projectId") Long projectId) {
         List<ActivityLogResponse> response = boardService.getActivity(projectId);
         return ResponseEntity.ok(response);
     }
