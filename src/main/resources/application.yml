@@ -11,6 +11,17 @@ spring:
 server:
   port: ${PORT:8080}
 
+springdoc:
+  api-docs:
+    enabled: true                  # Enable/Disable access to API documentation
+    path: /v3/api-docs            # Set the access path for the API documentation
+  swagger-ui:
+    path: /swagger-ui.html        # Set the access path for Swagger UI
+    disable-swagger-default-url: true
+    display-request-duration: true # Display request duration
+  packages-to-scan: com.itorly.rph # Specify the package to be scanned
+
+
 # Tip: override at runtime:
 # PORT=8081 ./gradlew bootRun
 
