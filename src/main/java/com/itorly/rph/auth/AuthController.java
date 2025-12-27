@@ -8,6 +8,8 @@ import com.itorly.rph.security.JwtTokenProvider;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Authentication and token management endpoints.")
 public class AuthController {
 
     private final UserService userService;
@@ -32,6 +35,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Operation(summary = "Register a user", description = "Create a user account and return an access token.")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         User user = userService.registerUser(
                 request.getEmail(),
@@ -52,6 +56,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "User login", description = "Authenticate with email and password to receive an access token.")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         User user = userService.findByEmailOrThrow(request.getEmail());
 
