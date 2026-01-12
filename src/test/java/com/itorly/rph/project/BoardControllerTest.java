@@ -210,6 +210,8 @@ class BoardControllerTest {
 
         MoveTaskRequest request = new MoveTaskRequest();
         request.setTargetColumnId(50L);
+        request.setFromPosition(1);
+        request.setToPosition(2);
 
         TaskResponse updatedTask = new TaskResponse(
                 taskId,
@@ -293,14 +295,20 @@ class BoardControllerTest {
                 101L,
                 "Implement API",
                 ActivityActionType.TASK_MOVED,
+                20L,
+                30L,
+                1,
+                2,
                 "In Progress",
                 "Done",
+                null,
                 300L,
                 "Jordan Smith",
                 Instant.parse("2024-08-01T10:00:00Z")
         );
 
-        when(boardService.getActivity(projectId)).thenReturn(List.of(logResponse));
+        when(boardService.getActivity(eq(projectId), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(logResponse));
 
         mockMvc.perform(get("/api/projects/{projectId}/activity", projectId))
                 .andExpect(status().isOk())

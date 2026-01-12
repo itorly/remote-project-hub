@@ -112,8 +112,24 @@ public class BoardController {
 
     @GetMapping("/activity")
     @Operation(summary = "Get project activity", description = "Retrieve recent activity logs for the project.")
-    public ResponseEntity<List<ActivityLogResponse>> getActivity(@PathVariable Long projectId) {
-        List<ActivityLogResponse> response = boardService.getActivity(projectId);
+    public ResponseEntity<List<ActivityLogResponse>> getActivity(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "createdAt,desc") String sort,
+            @RequestParam(required = false) ActivityActionType type,
+            @RequestParam(required = false) Long taskId,
+            @RequestParam(required = false) Long actorId
+    ) {
+        List<ActivityLogResponse> response = boardService.getActivity(
+                projectId,
+                page,
+                size,
+                sort,
+                type,
+                taskId,
+                actorId
+        );
         return ResponseEntity.ok(response);
     }
 }

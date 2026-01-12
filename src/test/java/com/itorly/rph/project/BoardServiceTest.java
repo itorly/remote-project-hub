@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -199,6 +200,10 @@ class BoardServiceTest {
             assertEquals(project, captured.getProject());
             assertNotNull(captured.getTask());
             assertEquals(400L, captured.getTask().getId());
+            assertNull(captured.getFromColumnId());
+            assertEquals(columnId, captured.getToColumnId());
+            assertNull(captured.getFromPosition());
+            assertNull(captured.getToPosition());
             assertNull(captured.getOldValue());
             assertEquals(column.getName(), captured.getNewValue());
             assertEquals(user, captured.getActor());
@@ -274,6 +279,8 @@ class BoardServiceTest {
 
             MoveTaskRequest request = new MoveTaskRequest();
             request.setTargetColumnId(targetColumnId);
+            request.setFromPosition(1);
+            request.setToPosition(3);
 
             TaskResponse response = boardService.moveTask(projectId, taskId, request);
 
@@ -283,6 +290,10 @@ class BoardServiceTest {
             // Movement activity should log both column names along with the actor
             ActivityLog captured = logCaptor.getValue();
             assertEquals(ActivityActionType.TASK_MOVED, captured.getActionType());
+            assertEquals(currentColumn.getId(), captured.getFromColumnId());
+            assertEquals(targetColumnId, captured.getToColumnId());
+            assertEquals(1, captured.getFromPosition());
+            assertEquals(3, captured.getToPosition());
             assertEquals(currentColumn.getName(), captured.getOldValue());
             assertEquals(targetColumn.getName(), captured.getNewValue());
             assertEquals(user, captured.getActor());
@@ -541,6 +552,7 @@ class BoardServiceTest {
 
             ActivityLog captured = logCaptor.getValue();
             assertEquals(ActivityActionType.TASK_DELETED, captured.getActionType());
+            assertEquals(column.getId(), captured.getFromColumnId());
             assertEquals("title='Removable', description='To be deleted', assigneeId=null, dueDate=null, tags='', status=TODO", captured.getOldValue());
             assertNull(captured.getNewValue());
             assertEquals(currentUser, captured.getActor());
@@ -709,14 +721,18 @@ class BoardServiceTest {
             log.setTask(task);
             log.setActor(actor);
             log.setActionType(ActivityActionType.TASK_CREATED);
+            log.setFromColumnId(null);
+            log.setToColumnId(20L);
+            log.setFromPosition(null);
+            log.setToPosition(0);
             log.setOldValue(null);
             log.setNewValue("Todo");
             log.setCreatedAt(Instant.parse("2024-01-01T00:00:00Z"));
 
-            when(activityLogRepository.findByProjectIdOrderByCreatedAtDesc(projectId))
-                    .thenReturn(List.of(log));
+            when(activityLogRepository.findByProjectIdWithFilters(eq(projectId), any(), any(), any(), any(Pageable.class)))
+                    .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(log)));
 
-            List<ActivityLogResponse> responses = boardService.getActivity(projectId);
+            List<ActivityLogResponse> responses = boardService.getActivity(projectId, 0, 10, "createdAt,desc", null, null, null);
 
             assertEquals(1, responses.size());
             ActivityLogResponse response = responses.get(0);
@@ -725,6 +741,8 @@ class BoardServiceTest {
             assertEquals(task.getId(), response.getTaskId());
             assertEquals(task.getTitle(), response.getTaskTitle());
             assertEquals(ActivityActionType.TASK_CREATED, response.getActionType());
+            assertEquals(20L, response.getToColumnId());
+            assertEquals(0, response.getToPosition());
             assertEquals(actor.getId(), response.getActorId());
             assertEquals(actor.getDisplayName(), response.getActorDisplayName());
             assertEquals(log.getCreatedAt(), response.getCreatedAt());

@@ -19,10 +19,20 @@ public class ActivityLogResponse {
     private String taskTitle;
     @Schema(description = "Type of action performed", example = "UPDATED")
     private ActivityActionType actionType;
+    @Schema(description = "Source column ID for move/column events", example = "12")
+    private Long fromColumnId;
+    @Schema(description = "Target column ID for move/column events", example = "15")
+    private Long toColumnId;
+    @Schema(description = "Original position for move/column events", example = "0")
+    private Integer fromPosition;
+    @Schema(description = "New position for move/column events", example = "3")
+    private Integer toPosition;
     @Schema(description = "Previous value (if applicable)", example = "To Do")
     private String oldValue;
     @Schema(description = "New value (if applicable)", example = "In Progress")
     private String newValue;
+    @Schema(description = "Optional metadata payload (JSON string) for future extensions")
+    private String metadataJson;
     @Schema(description = "ID of the user who performed the action", example = "25")
     private Long actorId;
     @Schema(description = "Display name of the user who performed the action", example = "Jordan Smith")
@@ -31,15 +41,22 @@ public class ActivityLogResponse {
     private Instant createdAt;
 
     public ActivityLogResponse(Long id, Long projectId, Long taskId, String taskTitle,
-                               ActivityActionType actionType, String oldValue, String newValue,
-                               Long actorId, String actorDisplayName, Instant createdAt) {
+                               ActivityActionType actionType, Long fromColumnId, Long toColumnId,
+                               Integer fromPosition, Integer toPosition, String oldValue,
+                               String newValue, String metadataJson, Long actorId,
+                               String actorDisplayName, Instant createdAt) {
         this.id = id;
         this.projectId = projectId;
         this.taskId = taskId;
         this.taskTitle = taskTitle;
         this.actionType = actionType;
+        this.fromColumnId = fromColumnId;
+        this.toColumnId = toColumnId;
+        this.fromPosition = fromPosition;
+        this.toPosition = toPosition;
         this.oldValue = oldValue;
         this.newValue = newValue;
+        this.metadataJson = metadataJson;
         this.actorId = actorId;
         this.actorDisplayName = actorDisplayName;
         this.createdAt = createdAt;

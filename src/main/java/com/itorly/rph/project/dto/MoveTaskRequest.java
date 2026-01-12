@@ -11,6 +11,12 @@ public class MoveTaskRequest {
     @Schema(description = "Target column ID to move the task into", example = "21")
     private Long targetColumnId;
 
-    // In the future we can add newPosition etc.
+    @NotNull
+    @Schema(description = "Original position of the task in the source column", example = "0")
+    private Integer fromPosition;
+
+    @NotNull
+    @Schema(description = "New position of the task in the target column", example = "3")
+    private Integer toPosition;
 
 }
