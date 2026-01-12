@@ -8,7 +8,7 @@ import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(
-        name = "board_activity",
+        name = "activity_logs",
         indexes = {
                 @Index(name = "idx_board_activity_project_created", columnList = "project_id, created_at"),
                 @Index(name = "idx_board_activity_task_created", columnList = "task_id, created_at")
