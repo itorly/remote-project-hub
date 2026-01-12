@@ -10,6 +10,10 @@ import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -99,7 +103,8 @@ public class BoardService {
 
     @Transactional
     public BoardColumnResponse createColumn(Long projectId, CreateColumnRequest request) {
-        Project project = getAuthorizedProject(projectId);
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
 
         List<BoardColumn> existing = boardColumnRepository
                 .findByProjectIdOrderByPositionAsc(projectId);
@@ -120,6 +125,20 @@ public class BoardService {
 
         BoardColumn saved = boardColumnRepository.save(column);
 
+        logActivity(
+                project,
+                null,
+                ActivityActionType.COLUMN_CREATED,
+                null,
+                saved.getId(),
+                null,
+                saved.getPosition(),
+                null,
+                summarizeColumn(saved),
+                null,
+                currentUser
+        );
+
         return new BoardColumnResponse(
                 saved.getId(),
                 saved.getName(),
@@ -130,7 +149,8 @@ public class BoardService {
 
     @Transactional
     public BoardColumnResponse updateColumn(Long projectId, Long columnId, UpdateColumnRequest request) {
-        Project project = getAuthorizedProject(projectId);
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
 
         BoardColumn column = boardColumnRepository.findById(columnId)
                 .orElseThrow(() -> new EntityNotFoundException("Column not found"));
@@ -138,6 +158,9 @@ public class BoardService {
         if (!Objects.equals(column.getProject().getId(), project.getId())) {
             throw new BadRequestException("Column does not belong to this project");
         }
+
+        String oldSnapshot = summarizeColumn(column);
+        Integer oldPosition = column.getPosition();
 
         if (request.getName() != null) {
             column.setName(request.getName());
@@ -148,6 +171,20 @@ public class BoardService {
         }
 
         BoardColumn saved = boardColumnRepository.save(column);
+
+        logActivity(
+                project,
+                null,
+                ActivityActionType.COLUMN_UPDATED,
+                saved.getId(),
+                saved.getId(),
+                oldPosition,
+                saved.getPosition(),
+                oldSnapshot,
+                summarizeColumn(saved),
+                null,
+                currentUser
+        );
 
         List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByIdAsc(saved.getId())
                 .stream()
@@ -164,7 +201,8 @@ public class BoardService {
 
     @Transactional
     public void deleteColumn(Long projectId, Long columnId) {
-        Project project = getAuthorizedProject(projectId);
+        User currentUser = getCurrentUserOrThrow();
+        Project project = getAuthorizedProject(projectId, currentUser);
 
         BoardColumn column = boardColumnRepository.findById(columnId)
                 .orElseThrow(() -> new EntityNotFoundException("Column not found"));
@@ -172,6 +210,20 @@ public class BoardService {
         if (!Objects.equals(column.getProject().getId(), project.getId())) {
             throw new BadRequestException("Column does not belong to this project");
         }
+
+        logActivity(
+                project,
+                null,
+                ActivityActionType.COLUMN_DELETED,
+                column.getId(),
+                null,
+                column.getPosition(),
+                null,
+                summarizeColumn(column),
+                null,
+                null,
+                currentUser
+        );
 
         boardColumnRepository.delete(column);
     }
@@ -208,7 +260,19 @@ public class BoardService {
         Task saved = taskRepository.save(task);
 
         // Persist an audit trail entry for the newly created task including the actor and column context
-        logActivity(project, saved, ActivityActionType.TASK_CREATED, null, column.getName(), currentUser);
+        logActivity(
+                project,
+                saved,
+                ActivityActionType.TASK_CREATED,
+                null,
+                column.getId(),
+                null,
+                null,
+                null,
+                column.getName(),
+                null,
+                currentUser
+        );
 
         return toTaskResponse(saved);
     }
@@ -232,7 +296,9 @@ public class BoardService {
             throw new BadRequestException("Target column does not belong to this project");
         }
 
-        String oldColumnName = task.getColumn().getName();
+        BoardColumn currentColumn = task.getColumn();
+        String oldColumnName = currentColumn.getName();
+        Long fromColumnId = currentColumn.getId();
 
         task.setColumn(targetColumn);
         task.setStatus(mapColumnNameToStatus(targetColumn.getName()));
@@ -240,7 +306,19 @@ public class BoardService {
         Task saved = taskRepository.save(task);
 
         // Capture movement details (old/new column names) alongside the acting user
-        logActivity(project, saved, ActivityActionType.TASK_MOVED, oldColumnName, targetColumn.getName(), currentUser);
+        logActivity(
+                project,
+                saved,
+                ActivityActionType.TASK_MOVED,
+                fromColumnId,
+                targetColumn.getId(),
+                request.getFromPosition(),
+                request.getToPosition(),
+                oldColumnName,
+                targetColumn.getName(),
+                null,
+                currentUser
+        );
 
         return toTaskResponse(saved);
     }
@@ -292,7 +370,19 @@ public class BoardService {
 
         Task saved = taskRepository.save(task);
 
-        logActivity(project, saved, ActivityActionType.TASK_UPDATED, oldSnapshot, summarizeTask(saved), currentUser);
+        logActivity(
+                project,
+                saved,
+                ActivityActionType.TASK_UPDATED,
+                null,
+                null,
+                null,
+                null,
+                oldSnapshot,
+                summarizeTask(saved),
+                null,
+                currentUser
+        );
 
         return toTaskResponse(saved);
     }
@@ -311,16 +401,40 @@ public class BoardService {
 
         String snapshot = summarizeTask(task);
 
-        logActivity(project, task, ActivityActionType.TASK_DELETED, snapshot, null, currentUser);
+        logActivity(
+                project,
+                task,
+                ActivityActionType.TASK_DELETED,
+                task.getColumn().getId(),
+                null,
+                null,
+                null,
+                snapshot,
+                null,
+                null,
+                currentUser
+        );
 
         taskRepository.delete(task);
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityLogResponse> getActivity(Long projectId) {
+    public List<ActivityLogResponse> getActivity(Long projectId, Integer page, Integer size, String sort,
+                                                 ActivityActionType actionType, Long taskId, Long actorId) {
         Project project = getAuthorizedProject(projectId);
+        Pageable pageable = PageRequest.of(
+                normalizePage(page),
+                normalizeSize(size),
+                parseSort(sort)
+        );
 
-        List<ActivityLog> logs = activityLogRepository.findByProjectIdOrderByCreatedAtDesc(project.getId());
+        Page<ActivityLog> logs = activityLogRepository.findByProjectIdWithFilters(
+                project.getId(),
+                actionType,
+                taskId,
+                actorId,
+                pageable
+        );
 
         return logs.stream()
                 .map(this::toActivityResponse)
@@ -392,8 +506,13 @@ public class BoardService {
                 taskId,
                 taskTitle,
                 log.getActionType(),
+                log.getFromColumnId(),
+                log.getToColumnId(),
+                log.getFromPosition(),
+                log.getToPosition(),
                 log.getOldValue(),
                 log.getNewValue(),
+                log.getMetadataJson(),
                 actorId,
                 actorDisplayName,
                 log.getCreatedAt()
@@ -401,13 +520,19 @@ public class BoardService {
     }
 
     private void logActivity(Project project, Task task, ActivityActionType actionType,
-                             String oldValue, String newValue, User actor) {
+                             Long fromColumnId, Long toColumnId, Integer fromPosition, Integer toPosition,
+                             String oldValue, String newValue, String metadataJson, User actor) {
         ActivityLog log = new ActivityLog();
         log.setProject(project);
         log.setTask(task);
         log.setActionType(actionType);
+        log.setFromColumnId(fromColumnId);
+        log.setToColumnId(toColumnId);
+        log.setFromPosition(fromPosition);
+        log.setToPosition(toPosition);
         log.setOldValue(oldValue);
         log.setNewValue(newValue);
+        log.setMetadataJson(metadataJson);
         log.setActor(actor);
 
         activityLogRepository.save(log);
@@ -432,5 +557,47 @@ public class BoardService {
                 ", dueDate=" + task.getDueDate() +
                 ", tags='" + Objects.toString(task.getTags(), "") + '\'' +
                 ", status=" + task.getStatus();
+    }
+
+    private String summarizeColumn(BoardColumn column) {
+        return "name='" + column.getName() + '\'' +
+                ", position=" + column.getPosition();
+    }
+
+    private int normalizePage(Integer page) {
+        if (page == null) {
+            return 0;
+        }
+        if (page < 0) {
+            throw new BadRequestException("Page index must be zero or greater");
+        }
+        return page;
+    }
+
+    private int normalizeSize(Integer size) {
+        if (size == null) {
+            return 20;
+        }
+        if (size < 1) {
+            throw new BadRequestException("Page size must be greater than zero");
+        }
+        return size;
+    }
+
+    private Sort parseSort(String sort) {
+        if (!StringUtils.hasText(sort)) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+        String[] parts = sort.split(",", 2);
+        String property = parts[0];
+        Sort.Direction direction = Sort.Direction.DESC;
+        if (parts.length > 1) {
+            try {
+                direction = Sort.Direction.fromString(parts[1]);
+            } catch (IllegalArgumentException ex) {
+                throw new BadRequestException("Invalid sort direction");
+            }
+        }
+        return Sort.by(direction, property);
     }
 }

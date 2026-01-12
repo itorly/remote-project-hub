@@ -7,7 +7,13 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Entity
-@Table(name = "activity_logs")
+@Table(
+        name = "activity_logs",
+        indexes = {
+                @Index(name = "idx_board_activity_project_created", columnList = "project_id, created_at"),
+                @Index(name = "idx_board_activity_task_created", columnList = "task_id, created_at")
+        }
+)
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ActivityLog extends BaseEntity {
@@ -28,10 +34,25 @@ public class ActivityLog extends BaseEntity {
     @Column(nullable = false, length = 50)
     private ActivityActionType actionType;
 
+    @Column(name = "from_column_id")
+    private Long fromColumnId;
+
+    @Column(name = "to_column_id")
+    private Long toColumnId;
+
+    @Column(name = "from_position")
+    private Integer fromPosition;
+
+    @Column(name = "to_position")
+    private Integer toPosition;
+
     @Column(length = 4000)
     private String oldValue;
 
     @Column(length = 4000)
     private String newValue;
+
+    @Column(name = "metadata_json", length = 4000)
+    private String metadataJson;
 
 }
