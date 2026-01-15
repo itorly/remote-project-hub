@@ -6,6 +6,7 @@ import com.itorly.rph.project.dto.UpdateProjectRequest;
 import com.itorly.rph.security.CustomUserDetailsService;
 import com.itorly.rph.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itorly.rph.common.dto.PageResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -100,20 +101,32 @@ class ProjectControllerTest {
                 orgId
         );
 
-        when(projectService.getProjectsForOrganization(orgId))
-                .thenReturn(List.of(p1, p2));
+        PageResponse<ProjectResponse> response = new PageResponse<>(
+                List.of(p1, p2),
+                0,
+                20,
+                2,
+                1
+        );
+
+        when(projectService.getProjectsForOrganization(eq(orgId), any()))
+                .thenReturn(response);
 
         mockMvc.perform(get("/api/organizations/{organizationId}/projects", orgId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
                 // first element
-                .andExpect(jsonPath("$[0].id").value(10L))
-                .andExpect(jsonPath("$[0].name").value("First Project"))
-                .andExpect(jsonPath("$[0].organizationId").value(orgId))
+                .andExpect(jsonPath("$.items[0].id").value(10L))
+                .andExpect(jsonPath("$.items[0].name").value("First Project"))
+                .andExpect(jsonPath("$.items[0].organizationId").value(orgId))
                 // second element
-                .andExpect(jsonPath("$[1].id").value(11L))
-                .andExpect(jsonPath("$[1].name").value("Second Project"))
-                .andExpect(jsonPath("$[1].organizationId").value(orgId));
+                .andExpect(jsonPath("$.items[1].id").value(11L))
+                .andExpect(jsonPath("$.items[1].name").value("Second Project"))
+                .andExpect(jsonPath("$.items[1].organizationId").value(orgId));
     }
 
     @Test

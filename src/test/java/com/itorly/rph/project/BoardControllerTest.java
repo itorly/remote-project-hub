@@ -1,6 +1,7 @@
 package com.itorly.rph.project;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itorly.rph.common.dto.PageResponse;
 import com.itorly.rph.project.dto.*;
 import com.itorly.rph.security.CustomUserDetailsService;
 import com.itorly.rph.security.JwtTokenProvider;
@@ -62,7 +63,8 @@ class BoardControllerTest {
                 99L,
                 "Alex Doe",
                 Instant.parse("2024-09-01T00:00:00Z"),
-                "ui,ux"
+                "ui,ux",
+                1
         );
 
         BoardColumnResponse column = new BoardColumnResponse(
@@ -185,7 +187,8 @@ class BoardControllerTest {
                 99L,
                 "Alex Doe",
                 Instant.parse("2024-09-15T00:00:00Z"),
-                "backend,activity"
+                "backend,activity",
+                0
         );
 
         when(boardService.createTask(eq(projectId), any(CreateTaskRequest.class)))
@@ -201,6 +204,91 @@ class BoardControllerTest {
                 .andExpect(jsonPath("$.title").value("Implement API"))
                 .andExpect(jsonPath("$.assigneeDisplayName").value("Alex Doe"))
                 .andExpect(jsonPath("$.status").value("TODO"));
+    }
+
+    @Test
+    void getProjectTasks_returnsPagedResponse() throws Exception {
+        Long projectId = 5L;
+
+        TaskResponse task = new TaskResponse(
+                101L,
+                20L,
+                "Implement API",
+                "Build activity log endpoint",
+                TaskStatus.TODO,
+                99L,
+                "Alex Doe",
+                Instant.parse("2024-09-15T00:00:00Z"),
+                "backend,activity",
+                0
+        );
+
+        PageResponse<TaskResponse> response = new PageResponse<>(
+                List.of(task),
+                1,
+                2,
+                5,
+                3
+        );
+
+        when(boardService.getProjectTasks(eq(projectId), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/projects/{projectId}/tasks", projectId)
+                        .param("page", "1")
+                        .param("size", "2")
+                        .param("sort", "createdAt,desc"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalItems").value(5))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.items[0].id").value(101L))
+                .andExpect(jsonPath("$.items[0].position").value(0));
+    }
+
+    @Test
+    void getColumnTasks_returnsPagedResponse() throws Exception {
+        Long projectId = 5L;
+        Long columnId = 20L;
+
+        TaskResponse task = new TaskResponse(
+                102L,
+                columnId,
+                "QA Review",
+                "Review API responses",
+                TaskStatus.REVIEW,
+                null,
+                null,
+                null,
+                null,
+                2
+        );
+
+        PageResponse<TaskResponse> response = new PageResponse<>(
+                List.of(task),
+                0,
+                10,
+                1,
+                1
+        );
+
+        when(boardService.getColumnTasks(eq(projectId), eq(columnId), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/projects/{projectId}/columns/{columnId}/tasks", projectId, columnId)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "position,asc"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(102L))
+                .andExpect(jsonPath("$.items[0].position").value(2));
     }
 
     @Test
@@ -222,7 +310,8 @@ class BoardControllerTest {
                 99L,
                 "Alex Doe",
                 Instant.parse("2024-09-15T00:00:00Z"),
-                "backend,activity"
+                "backend,activity",
+                2
         );
 
         when(boardService.moveTask(eq(projectId), eq(taskId), any(MoveTaskRequest.class)))
@@ -259,7 +348,8 @@ class BoardControllerTest {
                 500L,
                 "Jordan", 
                 Instant.parse("2024-09-20T00:00:00Z"),
-                "backend,validation"
+                "backend,validation",
+                1
         );
 
         when(boardService.updateTask(eq(projectId), eq(taskId), any(UpdateTaskRequest.class)))

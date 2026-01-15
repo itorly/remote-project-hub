@@ -9,7 +9,12 @@ import lombok.EqualsAndHashCode;
 import java.util.List;
 
 @Entity
-@Table(name = "projects")
+@Table(
+        name = "projects",
+        indexes = {
+                @Index(name = "idx_projects_org_created_at", columnList = "organization_id, created_at")
+        }
+)
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Project extends BaseEntity {

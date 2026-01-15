@@ -1,5 +1,6 @@
 package com.itorly.rph.project;
 
+import com.itorly.rph.common.dto.PageResponse;
 import com.itorly.rph.common.exception.BadRequestException;
 import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.common.exception.UnauthorizedException;
@@ -55,7 +56,7 @@ public class BoardService {
         // Option 1: load tasks per column
         Map<Long, List<Task>> tasksByColumn = new HashMap<>();
         for (BoardColumn col : columns) {
-            List<Task> tasks = taskRepository.findByColumnIdOrderByIdAsc(col.getId());
+            List<Task> tasks = taskRepository.findByColumnIdOrderByPositionAscIdAsc(col.getId());
             tasksByColumn.put(col.getId(), tasks);
         }
 
@@ -88,7 +89,7 @@ public class BoardService {
             throw new BadRequestException("Column does not belong to this project");
         }
 
-        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByIdAsc(columnId)
+        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByPositionAscIdAsc(columnId)
                 .stream()
                 .map(this::toTaskResponse)
                 .toList();
@@ -186,7 +187,7 @@ public class BoardService {
                 currentUser
         );
 
-        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByIdAsc(saved.getId())
+        List<TaskResponse> taskResponses = taskRepository.findByColumnIdOrderByPositionAscIdAsc(saved.getId())
                 .stream()
                 .map(this::toTaskResponse)
                 .toList();
@@ -247,6 +248,7 @@ public class BoardService {
         task.setDescription(request.getDescription());
         task.setTags(request.getTags());
         task.setDueDate(request.getDueDate());
+        task.setPosition(nextTaskPosition(column.getId()));
 
         // Set status based on column name (simple mapping)
         task.setStatus(mapColumnNameToStatus(column.getName()));
@@ -302,6 +304,7 @@ public class BoardService {
 
         task.setColumn(targetColumn);
         task.setStatus(mapColumnNameToStatus(targetColumn.getName()));
+        task.setPosition(request.getToPosition());
 
         Task saved = taskRepository.save(task);
 
@@ -441,6 +444,45 @@ public class BoardService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<TaskResponse> getProjectTasks(Long projectId, Pageable pageable) {
+        Project project = getAuthorizedProject(projectId);
+        Page<Task> tasks = taskRepository.findByProjectId(project.getId(), pageable);
+        List<TaskResponse> items = tasks.stream()
+                .map(this::toTaskResponse)
+                .toList();
+        return new PageResponse<>(
+                items,
+                tasks.getNumber(),
+                tasks.getSize(),
+                tasks.getTotalElements(),
+                tasks.getTotalPages()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TaskResponse> getColumnTasks(Long projectId, Long columnId, Pageable pageable) {
+        Project project = getAuthorizedProject(projectId);
+        BoardColumn column = boardColumnRepository.findById(columnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found"));
+
+        if (!Objects.equals(column.getProject().getId(), project.getId())) {
+            throw new BadRequestException("Column does not belong to this project");
+        }
+
+        Page<Task> tasks = taskRepository.findByColumnId(column.getId(), pageable);
+        List<TaskResponse> items = tasks.stream()
+                .map(this::toTaskResponse)
+                .toList();
+        return new PageResponse<>(
+                items,
+                tasks.getNumber(),
+                tasks.getSize(),
+                tasks.getTotalElements(),
+                tasks.getTotalPages()
+        );
+    }
+
     private Project getAuthorizedProject(Long projectId) {
         User currentUser = getCurrentUserOrThrow();
         return getAuthorizedProject(projectId, currentUser);
@@ -486,7 +528,8 @@ public class BoardService {
                 assigneeId,
                 assigneeName,
                 task.getDueDate(),
-                task.getTags()
+                task.getTags(),
+                task.getPosition()
         );
     }
 
@@ -599,5 +642,10 @@ public class BoardService {
             }
         }
         return Sort.by(direction, property);
+    }
+
+    private int nextTaskPosition(Long columnId) {
+        Integer maxPosition = taskRepository.findMaxPositionByColumnId(columnId);
+        return maxPosition == null ? 0 : maxPosition + 1;
     }
 }

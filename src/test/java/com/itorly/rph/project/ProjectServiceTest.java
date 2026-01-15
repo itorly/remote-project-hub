@@ -11,6 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.util.List;
@@ -219,23 +221,27 @@ class ProjectServiceTest {
             p2.setStatus(ProjectStatus.ARCHIVED);
             p2.setOrganization(org);
 
-            when(projectRepository.findByOrganizationId(orgId))
-                    .thenReturn(List.of(p1, p2));
+            when(projectRepository.findByOrganizationId(eq(orgId), any()))
+                    .thenReturn(new PageImpl<>(List.of(p1, p2), PageRequest.of(0, 20), 2));
 
             // Act
-            var result = projectService.getProjectsForOrganization(orgId);
+            var result = projectService.getProjectsForOrganization(orgId, PageRequest.of(0, 20));
 
             // Assert
-            assertEquals(2, result.size());
-            assertEquals(300L, result.get(0).getId());
-            assertEquals("P1", result.get(0).getName());
-            assertEquals(ProjectStatus.ACTIVE, result.get(0).getStatus());
-            assertEquals(orgId, result.get(0).getOrganizationId());
+            assertEquals(2, result.getItems().size());
+            assertEquals(0, result.getPage());
+            assertEquals(20, result.getSize());
+            assertEquals(2, result.getTotalItems());
 
-            assertEquals(301L, result.get(1).getId());
-            assertEquals("P2", result.get(1).getName());
-            assertEquals(ProjectStatus.ARCHIVED, result.get(1).getStatus());
-            assertEquals(orgId, result.get(1).getOrganizationId());
+            assertEquals(300L, result.getItems().get(0).getId());
+            assertEquals("P1", result.getItems().get(0).getName());
+            assertEquals(ProjectStatus.ACTIVE, result.getItems().get(0).getStatus());
+            assertEquals(orgId, result.getItems().get(0).getOrganizationId());
+
+            assertEquals(301L, result.getItems().get(1).getId());
+            assertEquals("P2", result.getItems().get(1).getName());
+            assertEquals(ProjectStatus.ARCHIVED, result.getItems().get(1).getStatus());
+            assertEquals(orgId, result.getItems().get(1).getOrganizationId());
         }
     }
 

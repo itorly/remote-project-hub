@@ -27,10 +27,12 @@ public class TaskResponse {
     private Instant dueDate;
     @Schema(description = "Comma-separated tags for the task", example = "frontend,design")
     private String tags;
+    @Schema(description = "Position of the task within its column", example = "0")
+    private Integer position;
 
     public TaskResponse(Long id, Long columnId, String title, String description,
                         TaskStatus status, Long assigneeId, String assigneeDisplayName,
-                        Instant dueDate, String tags) {
+                        Instant dueDate, String tags, Integer position) {
         this.id = id;
         this.columnId = columnId;
         this.title = title;
@@ -40,6 +42,7 @@ public class TaskResponse {
         this.assigneeDisplayName = assigneeDisplayName;
         this.dueDate = dueDate;
         this.tags = tags;
+        this.position = position;
     }
 
 }

@@ -3,6 +3,7 @@ package com.itorly.rph.project;
 import com.itorly.rph.common.exception.ForbiddenException;
 import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.*;
+import com.itorly.rph.common.dto.PageResponse;
 import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
 import com.itorly.rph.project.dto.UpdateProjectRequest;
@@ -10,6 +11,8 @@ import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,7 +77,7 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProjectResponse> getProjectsForOrganization(Long organizationId) {
+    public PageResponse<ProjectResponse> getProjectsForOrganization(Long organizationId, Pageable pageable) {
         User currentUser = getCurrentUserOrThrow();
 
         Organization org = organizationRepository.findById(organizationId)
@@ -83,9 +86,8 @@ public class ProjectService {
         memberRepository.findByOrganizationIdAndUserId(org.getId(), currentUser.getId())
                 .orElseThrow(() -> new ForbiddenException("User is not a member of this organization"));
 
-        List<Project> projects = projectRepository.findByOrganizationId(org.getId());
-
-        return projects.stream()
+        Page<Project> projects = projectRepository.findByOrganizationId(org.getId(), pageable);
+        List<ProjectResponse> items = projects.stream()
                 .map(p -> new ProjectResponse(
                         p.getId(),
                         p.getName(),
@@ -94,6 +96,13 @@ public class ProjectService {
                         org.getId()
                 ))
                 .toList();
+        return new PageResponse<>(
+                items,
+                projects.getNumber(),
+                projects.getSize(),
+                projects.getTotalElements(),
+                projects.getTotalPages()
+        );
     }
 
     @Transactional

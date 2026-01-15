@@ -2,12 +2,16 @@ package com.itorly.rph.project;
 
 import com.itorly.rph.project.dto.*;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.itorly.rph.common.dto.PageResponse;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}")
@@ -75,6 +79,27 @@ public class BoardController {
             @Valid @RequestBody CreateTaskRequest request
     ) {
         TaskResponse response = boardService.createTask(projectId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tasks")
+    @Operation(summary = "List tasks", description = "Retrieve tasks for the specified project.")
+    public ResponseEntity<PageResponse<TaskResponse>> getProjectTasks(
+            @PathVariable Long projectId,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        PageResponse<TaskResponse> response = boardService.getProjectTasks(projectId, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/columns/{columnId}/tasks")
+    @Operation(summary = "List column tasks", description = "Retrieve tasks for the specified column.")
+    public ResponseEntity<PageResponse<TaskResponse>> getColumnTasks(
+            @PathVariable Long projectId,
+            @PathVariable Long columnId,
+            @PageableDefault(sort = { "position", "id" }) Pageable pageable
+    ) {
+        PageResponse<TaskResponse> response = boardService.getColumnTasks(projectId, columnId, pageable);
         return ResponseEntity.ok(response);
     }
 

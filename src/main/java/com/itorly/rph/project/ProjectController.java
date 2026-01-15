@@ -4,12 +4,15 @@ import com.itorly.rph.project.dto.CreateProjectRequest;
 import com.itorly.rph.project.dto.ProjectResponse;
 import com.itorly.rph.project.dto.UpdateProjectRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.itorly.rph.common.dto.PageResponse;
 
 @RestController
 @RequestMapping("/api/organizations/{organizationId}/projects")
@@ -34,10 +37,11 @@ public class ProjectController {
 
     @GetMapping
     @Operation(summary = "List projects", description = "Retrieve all projects for the specified organization.")
-    public ResponseEntity<List<ProjectResponse>> getProjects(
-            @PathVariable Long organizationId
+    public ResponseEntity<PageResponse<ProjectResponse>> getProjects(
+            @PathVariable Long organizationId,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        List<ProjectResponse> projects = projectService.getProjectsForOrganization(organizationId);
+        PageResponse<ProjectResponse> projects = projectService.getProjectsForOrganization(organizationId, pageable);
         return ResponseEntity.ok(projects);
     }
 

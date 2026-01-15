@@ -117,7 +117,7 @@ class BoardServiceTest {
             task.setColumn(column);
             task.setStatus(TaskStatus.TODO);
 
-            when(taskRepository.findByColumnIdOrderByIdAsc(columnId))
+            when(taskRepository.findByColumnIdOrderByPositionAscIdAsc(columnId))
                     .thenReturn(List.of(task));
 
             BoardColumnResponse response = boardService.getColumn(projectId, columnId);
@@ -172,6 +172,9 @@ class BoardServiceTest {
             when(boardColumnRepository.findById(columnId))
                     .thenReturn(Optional.of(column));
 
+            when(taskRepository.findMaxPositionByColumnId(columnId))
+                    .thenReturn(2);
+
             when(taskRepository.save(any(Task.class)))
                     .thenAnswer(invocation -> {
                         Task toSave = invocation.getArgument(0);
@@ -193,6 +196,7 @@ class BoardServiceTest {
             assertNotNull(response);
             assertEquals(400L, response.getId());
             assertEquals(columnId, response.getColumnId());
+            assertEquals(3, response.getPosition());
 
             // Logged activity should capture action metadata and the acting user
             ActivityLog captured = logCaptor.getValue();
@@ -286,6 +290,8 @@ class BoardServiceTest {
 
             assertEquals(targetColumnId, response.getColumnId());
             assertEquals(TaskStatus.DONE, task.getStatus());
+            assertEquals(3, response.getPosition());
+            assertEquals(3, task.getPosition());
 
             // Movement activity should log both column names along with the actor
             ActivityLog captured = logCaptor.getValue();
@@ -606,7 +612,7 @@ class BoardServiceTest {
             when(boardColumnRepository.save(any(BoardColumn.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            when(taskRepository.findByColumnIdOrderByIdAsc(columnId))
+            when(taskRepository.findByColumnIdOrderByPositionAscIdAsc(columnId))
                     .thenReturn(List.of());
 
             UpdateColumnRequest request = new UpdateColumnRequest();
