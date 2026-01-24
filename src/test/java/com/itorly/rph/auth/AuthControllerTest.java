@@ -2,6 +2,7 @@ package com.itorly.rph.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itorly.rph.auth.dto.LoginRequest;
+import com.itorly.rph.auth.dto.RefreshTokenRequest;
 import com.itorly.rph.auth.dto.RegisterRequest;
 import com.itorly.rph.security.CustomUserDetailsService;
 import com.itorly.rph.security.JwtTokenProvider;
@@ -47,6 +48,9 @@ class AuthControllerTest {
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
 
+    @MockitoBean
+    private RefreshTokenService refreshTokenService;
+
     @Test
     void register_returnsAuthResponse() throws Exception {
         RegisterRequest request = new RegisterRequest();
@@ -70,13 +74,21 @@ class AuthControllerTest {
 
         when(jwtTokenProvider.generateToken(5L, "alice@example.com"))
                 .thenReturn("jwt-token");
+        when(refreshTokenService.issueToken(createdUser, "TestAgent", "127.0.0.1"))
+                .thenReturn("refresh-token");
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("User-Agent", "TestAgent")
+                        .with(requestBuilder -> {
+                            requestBuilder.setRemoteAddr("127.0.0.1");
+                            return requestBuilder;
+                        })
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.token").value("jwt-token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.userId").value(5L))
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
                 .andExpect(jsonPath("$.displayName").value("Alice"));
@@ -97,13 +109,21 @@ class AuthControllerTest {
         when(userService.findByEmailOrThrow("bob@example.com")).thenReturn(user);
         when(passwordEncoder.matches("secret", "encoded-secret")).thenReturn(true);
         when(jwtTokenProvider.generateToken(7L, "bob@example.com")).thenReturn("token-123");
+        when(refreshTokenService.issueToken(user, "TestAgent", "127.0.0.1"))
+                .thenReturn("refresh-token");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("User-Agent", "TestAgent")
+                        .with(requestBuilder -> {
+                            requestBuilder.setRemoteAddr("127.0.0.1");
+                            return requestBuilder;
+                        })
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.token").value("token-123"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.userId").value(7L))
                 .andExpect(jsonPath("$.email").value("bob@example.com"))
                 .andExpect(jsonPath("$.displayName").value("Bob"));
@@ -149,5 +169,39 @@ class AuthControllerTest {
                         "email must not be blank",
                         "password must not be blank"
                 )));
+    }
+
+    @Test
+    void refresh_returnsAuthTokenResponse() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest();
+        request.setRefreshToken("refresh-token");
+
+        User user = new User();
+        user.setId(11L);
+        user.setEmail("dana@example.com");
+
+        when(refreshTokenService.rotateToken("refresh-token"))
+                .thenReturn(new RefreshTokenService.RefreshTokenRotation(user, "new-refresh-token"));
+        when(jwtTokenProvider.generateToken(11L, "dana@example.com"))
+                .thenReturn("new-access-token");
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.token").value("new-access-token"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"));
+    }
+
+    @Test
+    void logout_revokesRefreshToken() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest();
+        request.setRefreshToken("refresh-token");
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
     }
 }
