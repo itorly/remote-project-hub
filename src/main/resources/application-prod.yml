@@ -24,3 +24,4 @@ security:
   jwt:
     secret: ${JWT_SECRET}
     validity-ms: ${JWT_VALIDITY_MS:86400000}
+    refresh-validity-ms: ${JWT_REFRESH_VALIDITY_MS:1209600000}

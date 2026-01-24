@@ -16,7 +16,10 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 
 ### Authentication
 - Register and login endpoints
-- JWT-based authentication (stateless)
+- JWT access tokens + refresh tokens with rotation
+- Logout flow revokes refresh tokens (per-session)
+- Refresh tokens are returned in JSON for simplicity in this portfolio project; in production
+  you should prefer an HttpOnly + Secure cookie to reduce XSS exposure.
 
 ### Organization & Projects
 - Create and manage organization-scoped projects
@@ -42,7 +45,7 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 - Spring Boot 3.x
 - Spring Web (REST APIs)
 - Spring Security
-- JWT (token auth)
+- JWT (access + refresh tokens)
 - Spring Data JPA (Hibernate)
 - Bean Validation
 
