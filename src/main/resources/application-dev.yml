@@ -25,6 +25,8 @@ security:
     # Demo default; override with JWT_SECRET
     secret: ${JWT_SECRET:replace-with-a-long-secret-key-at-least-32-bytes}
     validity-ms: ${JWT_VALIDITY_MS:86400000}
+  refresh-token:
+    validity-ms: ${REFRESH_TOKEN_VALIDITY_MS:1209600000}
 
 
 #spring:

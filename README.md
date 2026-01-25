@@ -17,6 +17,7 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 ### Authentication
 - Register and login endpoints
 - JWT-based authentication (stateless)
+- Refresh tokens with rotation + revocation (logout)
 
 ### Organization & Projects
 - Create and manage organization-scoped projects
@@ -43,6 +44,7 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 - Spring Web (REST APIs)
 - Spring Security
 - JWT (token auth)
+- Refresh tokens (rotation, revocation)
 - Spring Data JPA (Hibernate)
 - Bean Validation
 
@@ -61,6 +63,7 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 
 src/main/java/com/itorly/rph
 auth/ # register/login, auth DTOs
+auth/refresh/ # refresh token domain + rotation
 security/ # JWT filter/provider, security config
 organization/ # org + membership domain
 project/ # project domain + controllers/services
@@ -86,6 +89,27 @@ This repo is configured to use environment variables for sensitive values (DB pa
 
 ```bash
 cp .env.example .env
+```
+
+2) Update JWT values for your environment:
+
+```
+JWT_SECRET=replace-with-a-long-secret-key-at-least-32-bytes
+JWT_VALIDITY_MS=86400000
+REFRESH_TOKEN_VALIDITY_MS=1209600000
+```
+
+---
+
+## Auth Token Flow
+
+**Endpoints**
+- `POST /api/auth/login` → access token + refresh token
+- `POST /api/auth/refresh` → new access token + rotated refresh token
+- `POST /api/auth/logout` → revoke current refresh token
+
+**Storage note (portfolio tradeoff)**
+Refresh tokens are returned in JSON for simplicity. In production, you should store refresh tokens in an HttpOnly Secure cookie to reduce XSS risk.
 
 ## Add ActivityLog on task changes
 1. On task create / move, insert an ActivityLog row.
