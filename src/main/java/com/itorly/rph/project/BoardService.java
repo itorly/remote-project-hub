@@ -7,6 +7,11 @@ import com.itorly.rph.common.exception.UnauthorizedException;
 import com.itorly.rph.organization.OrganizationMember;
 import com.itorly.rph.organization.OrganizationMemberRepository;
 import com.itorly.rph.project.dto.*;
+import com.itorly.rph.project.realtime.BoardEventPublisher;
+import com.itorly.rph.project.realtime.BoardEventType;
+import com.itorly.rph.project.realtime.ColumnDeletedPayload;
+import com.itorly.rph.project.realtime.TaskDeletedPayload;
+import com.itorly.rph.project.realtime.TaskMovedPayload;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -31,19 +36,22 @@ public class BoardService {
     private final ActivityLogRepository activityLogRepository;
     private final OrganizationMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final BoardEventPublisher boardEventPublisher;
 
     public BoardService(ProjectRepository projectRepository,
                         BoardColumnRepository boardColumnRepository,
                         TaskRepository taskRepository,
                         ActivityLogRepository activityLogRepository,
                         OrganizationMemberRepository memberRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        BoardEventPublisher boardEventPublisher) {
         this.projectRepository = projectRepository;
         this.boardColumnRepository = boardColumnRepository;
         this.taskRepository = taskRepository;
         this.activityLogRepository = activityLogRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.boardEventPublisher = boardEventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -140,12 +148,16 @@ public class BoardService {
                 currentUser
         );
 
-        return new BoardColumnResponse(
+        BoardColumnResponse response = new BoardColumnResponse(
                 saved.getId(),
                 saved.getName(),
                 saved.getPosition(),
                 List.of()
         );
+
+        boardEventPublisher.publish(project.getId(), BoardEventType.COLUMN_CREATED, response);
+
+        return response;
     }
 
     @Transactional
@@ -192,12 +204,16 @@ public class BoardService {
                 .map(this::toTaskResponse)
                 .toList();
 
-        return new BoardColumnResponse(
+        BoardColumnResponse response = new BoardColumnResponse(
                 saved.getId(),
                 saved.getName(),
                 saved.getPosition(),
                 taskResponses
         );
+
+        boardEventPublisher.publish(project.getId(), BoardEventType.COLUMN_UPDATED, response);
+
+        return response;
     }
 
     @Transactional
@@ -227,6 +243,9 @@ public class BoardService {
         );
 
         boardColumnRepository.delete(column);
+
+        ColumnDeletedPayload payload = new ColumnDeletedPayload(column.getId(), column.getPosition());
+        boardEventPublisher.publish(project.getId(), BoardEventType.COLUMN_DELETED, payload);
     }
 
     @Transactional
@@ -276,7 +295,9 @@ public class BoardService {
                 currentUser
         );
 
-        return toTaskResponse(saved);
+        TaskResponse response = toTaskResponse(saved);
+        boardEventPublisher.publish(project.getId(), BoardEventType.TASK_CREATED, response);
+        return response;
     }
 
     @Transactional
@@ -323,6 +344,14 @@ public class BoardService {
                 currentUser
         );
 
+        TaskMovedPayload payload = new TaskMovedPayload(
+                saved.getId(),
+                fromColumnId,
+                targetColumn.getId(),
+                request.getFromPosition(),
+                request.getToPosition()
+        );
+        boardEventPublisher.publish(project.getId(), BoardEventType.TASK_MOVED, payload);
         return toTaskResponse(saved);
     }
 
@@ -387,7 +416,9 @@ public class BoardService {
                 currentUser
         );
 
-        return toTaskResponse(saved);
+        TaskResponse response = toTaskResponse(saved);
+        boardEventPublisher.publish(project.getId(), BoardEventType.TASK_UPDATED, response);
+        return response;
     }
 
     @Transactional
@@ -419,6 +450,9 @@ public class BoardService {
         );
 
         taskRepository.delete(task);
+
+        TaskDeletedPayload payload = new TaskDeletedPayload(task.getId(), task.getColumn().getId());
+        boardEventPublisher.publish(project.getId(), BoardEventType.TASK_DELETED, payload);
     }
 
     @Transactional(readOnly = true)

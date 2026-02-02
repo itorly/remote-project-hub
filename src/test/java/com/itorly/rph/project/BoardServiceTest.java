@@ -10,6 +10,7 @@ import com.itorly.rph.project.dto.MoveTaskRequest;
 import com.itorly.rph.project.dto.TaskResponse;
 import com.itorly.rph.project.dto.UpdateColumnRequest;
 import com.itorly.rph.project.dto.UpdateTaskRequest;
+import com.itorly.rph.project.realtime.BoardEventPublisher;
 import com.itorly.rph.security.SecurityUtils;
 import com.itorly.rph.user.User;
 import com.itorly.rph.user.UserRepository;
@@ -51,6 +52,9 @@ class BoardServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private BoardEventPublisher boardEventPublisher;
+
     private BoardService boardService;
 
     @BeforeEach
@@ -61,7 +65,8 @@ class BoardServiceTest {
                 taskRepository,
                 activityLogRepository,
                 memberRepository,
-                userRepository
+                userRepository,
+                boardEventPublisher
         );
     }
 
