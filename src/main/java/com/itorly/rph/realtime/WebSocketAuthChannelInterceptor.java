@@ -66,6 +66,10 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             validateSubscription(accessor, authentication);
         }
 
+        if (StompCommand.SEND.equals(accessor.getCommand())) {
+            validateSendDestination(accessor);
+        }
+
         return message;
     }
 
@@ -121,6 +125,13 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
         memberRepository
                 .findByOrganizationIdAndUserId(project.getOrganization().getId(), user.getId())
                 .orElseThrow(() -> new AccessDeniedException("User is not a member of this organization"));
+    }
+
+    private void validateSendDestination(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (StringUtils.hasText(destination) && destination.startsWith(PROJECT_TOPIC_PREFIX)) {
+            throw new AccessDeniedException("Sending to project topics is not permitted");
+        }
     }
 
     private Long parseProjectId(String destination) {
