@@ -17,7 +17,6 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 ### Authentication
 - Register and login endpoints
 - JWT-based authentication (stateless)
-- Refresh tokens with rotation + revocation (logout)
 
 ### Organization & Projects
 - Create and manage organization-scoped projects
@@ -44,7 +43,6 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 - Spring Web (REST APIs)
 - Spring Security
 - JWT (token auth)
-- Refresh tokens (rotation, revocation)
 - Spring Data JPA (Hibernate)
 - Bean Validation
 
@@ -63,7 +61,6 @@ Remote Project Hub is a Spring Boot backend API for managing organizations, proj
 
 src/main/java/com/itorly/rph
 auth/ # register/login, auth DTOs
-auth/refresh/ # refresh token domain + rotation
 security/ # JWT filter/provider, security config
 organization/ # org + membership domain
 project/ # project domain + controllers/services
@@ -91,26 +88,59 @@ This repo is configured to use environment variables for sensitive values (DB pa
 cp .env.example .env
 ```
 
-2) Update JWT values for your environment:
-
-```
-JWT_SECRET=replace-with-a-long-secret-key-at-least-32-bytes
-JWT_VALIDITY_MS=86400000
-REFRESH_TOKEN_VALIDITY_MS=1209600000
-```
-
----
-
-## Auth Token Flow
-
-**Endpoints**
-- `POST /api/auth/login` → access token + refresh token
-- `POST /api/auth/refresh` → new access token + rotated refresh token
-- `POST /api/auth/logout` → revoke current refresh token
-
-**Storage note (portfolio tradeoff)**
-Refresh tokens are returned in JSON for simplicity. In production, you should store refresh tokens in an HttpOnly Secure cookie to reduce XSS risk.
-
 ## Add ActivityLog on task changes
 1. On task create / move, insert an ActivityLog row.
 2. Expose GET /api/projects/{id}/activity for the frontend.
+
+---
+
+## Requirements Analysis: Real-Time Board Updates (WebSocket)
+
+### Goal
+Enable real-time collaboration so that when any user changes a project’s Kanban board (columns/tasks), all other connected users see the update immediately without polling.
+
+### Scope & Assumptions
+- Applies to the **project Kanban board** (columns and tasks) only.
+- Users are already authenticated via JWT for REST APIs; WebSocket connections must enforce the same access control.
+- The backend is the source of truth; clients render updates from server-sent events.
+
+### Functional Requirements
+- **Live updates for board mutations**
+  - When a column or task is created, updated, moved, or deleted, the server broadcasts an event to all clients subscribed to that project’s board.
+- **Project-scoped subscriptions**
+  - Clients can subscribe to a specific project’s board channel (e.g., by project ID) and only receive events for that project.
+- **Access control**
+  - Only authenticated users with access to the project may connect and subscribe to its board events.
+  - Unauthorized subscriptions are rejected.
+- **Event payloads**
+  - Events must include enough data to update the UI without a full refetch (e.g., entity IDs, changed fields, and new ordering/column IDs).
+  - Include a consistent event type (e.g., `TASK_MOVED`, `TASK_CREATED`, `COLUMN_UPDATED`) and a server timestamp.
+- **Client reconciliation**
+  - Clients should be able to apply events idempotently and ignore duplicates.
+  - On initial connect, clients should still fetch the full board state via REST, then apply subsequent WebSocket events.
+
+### Non-Functional Requirements
+- **Latency**
+  - Updates should be broadcast within a low-latency window (target < 300ms server-side).
+- **Reliability**
+  - If a client disconnects, it can reconnect and resync via REST.
+- **Security**
+  - WebSocket connections must validate JWT and enforce project-level authorization.
+- **Scalability**
+  - The design should support multiple concurrent clients per project.
+  - If horizontal scaling is introduced, the event fan-out mechanism should remain correct (e.g., via a message broker or in-memory with single instance).
+- **Observability**
+  - Log connection lifecycle events (connect, subscribe, disconnect) and error cases.
+
+### API/Protocol Expectations
+- **WebSocket endpoint**
+  - Provide a single endpoint for connecting (e.g., `/ws`), then subscribe to project channels (e.g., `/topic/projects/{projectId}`).
+- **Event types**
+  - Define a minimal event schema with `type`, `projectId`, `payload`, and `timestamp`.
+- **Error handling**
+  - On invalid auth or subscription, return a clear error and close the connection.
+
+### Out of Scope (for this feature)
+- Activity logs and notifications beyond board updates.
+- Presence/typing indicators.
+- Offline conflict resolution beyond re-fetching state.
