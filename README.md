@@ -144,3 +144,61 @@ Enable real-time collaboration so that when any user changes a project’s Kanba
 - Activity logs and notifications beyond board updates.
 - Presence/typing indicators.
 - Offline conflict resolution beyond re-fetching state.
+
+---
+
+## Requirements Analysis: Role-Based Access Control (Admin vs Member)
+
+### Goal
+Introduce clear, enforceable access rules within organizations so that administrative actions are limited to admins while members retain standard participation rights.
+
+### Scope & Assumptions
+- Applies to **organization membership** and **project lifecycle** actions.
+- Users are already authenticated via JWT; RBAC builds on authenticated identity.
+- Each organization has at least one **Admin** (cannot leave the org without transferring admin rights).
+- Roles are stored in organization membership records and evaluated server-side on every protected endpoint.
+
+### Functional Requirements
+- **Roles and permissions**
+  - **Admin**
+    - Manage members: invite/add, update role, remove members.
+    - Manage projects: create, update, delete projects within the organization.
+  - **Member**
+    - View organization and project data they belong to.
+    - Participate in project activities (e.g., Kanban board changes) unless otherwise restricted.
+- **Member management**
+  - Only admins can add members or change member roles.
+  - Only admins can remove members; admins cannot remove the last remaining admin.
+  - Members cannot manage other members (no self-promotion or role updates).
+- **Project deletion**
+  - Only admins can delete projects.
+  - Deletion must be blocked for members even if they created the project.
+- **Role enforcement**
+  - Every protected endpoint checks role + org membership before performing the action.
+  - If a user is not a member of the org, return a 404 (to avoid org existence leaks) or 403, per existing API conventions.
+- **Auditability (basic)**
+  - Log administrative actions (member changes, project deletes) with actor ID, org ID, and timestamp.
+
+### Non-Functional Requirements
+- **Security**
+  - Role checks must be server-side and non-bypassable.
+  - JWT claims should not be trusted alone; verify roles from persisted membership.
+- **Consistency**
+  - Role checks should be centralized (service or security layer) to avoid drift.
+- **Error clarity**
+  - 403 for authenticated users lacking permissions; 404 where required for resource concealment.
+
+### API/Behavior Expectations
+- **Member management endpoints**
+  - `POST /api/orgs/{orgId}/members` (admin only)
+  - `PATCH /api/orgs/{orgId}/members/{memberId}` (admin only)
+  - `DELETE /api/orgs/{orgId}/members/{memberId}` (admin only)
+- **Project deletion endpoint**
+  - `DELETE /api/orgs/{orgId}/projects/{projectId}` (admin only)
+- **Error responses**
+  - Consistent error payloads aligned with existing global exception handling.
+
+### Out of Scope (for this feature)
+- Fine-grained permissions beyond Admin vs Member (e.g., project-specific roles).
+- Temporary elevated permissions or approval workflows.
+- UI/UX changes for role management (backend enforcement only).
