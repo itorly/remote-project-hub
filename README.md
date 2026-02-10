@@ -202,3 +202,90 @@ Introduce clear, enforceable access rules within organizations so that administr
 - Fine-grained permissions beyond Admin vs Member (e.g., project-specific roles).
 - Temporary elevated permissions or approval workflows.
 - UI/UX changes for role management (backend enforcement only).
+
+---
+
+## Requirements Analysis: Task Search & Filters (Tag, Assignee, Status, Due Date)
+
+### Goal
+Enable users to quickly find relevant tasks within a project by combining structured filters (`tag`, `assignee`, `status`, `due date`) with free-text search, while preserving existing project-level authorization and pagination behavior.
+
+### Scope & Assumptions
+- Scope is limited to **task retrieval** endpoints (primarily `GET /api/projects/{projectId}/tasks`; optionally column task listing if needed for UX consistency).
+- Filtering applies only within a single project context (`projectId` path variable).
+- Existing authorization checks remain mandatory: only users with project access can query tasks.
+- Current `Task.tags` persistence is comma-separated text (MVP); filtering should still behave predictably for exact tag matches.
+- Search and filters are additive (logical `AND`) unless explicitly noted otherwise.
+
+### Primary Use Cases
+- As a member, I can search tasks by text to locate a task title/description quickly.
+- As a manager, I can filter tasks assigned to a teammate to review workload.
+- As a contributor, I can filter by `status` and `due date` to focus on urgent work.
+- As any user, I can combine multiple filters (e.g., `assignee + status + dueBefore`) and paginate through results.
+
+### Functional Requirements
+- **Query parameters (MVP)**
+  - `q` (optional): case-insensitive free-text search against title and description.
+  - `tag` (optional, repeatable or comma-delimited): exact tag matching after normalization.
+  - `assigneeId` (optional): include only tasks assigned to the specified user.
+  - `unassigned` (optional boolean): include only tasks with no assignee.
+  - `status` (optional, repeatable): filter by one or more task statuses (`TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`, etc. as supported).
+  - Due date filters:
+    - `dueFrom` (optional, inclusive lower bound, UTC)
+    - `dueTo` (optional, inclusive upper bound, UTC)
+    - `overdue` (optional boolean): shorthand for `dueDate < now` and not done (define done statuses explicitly).
+- **Combination semantics**
+  - Different filter groups combine with logical `AND`.
+  - Multi-value filters inside the same group (e.g., multiple statuses) combine with logical `OR`.
+  - If both `assigneeId` and `unassigned=true` are provided, return `400 Bad Request` (conflicting criteria).
+- **Tag normalization rules (MVP)**
+  - Trim surrounding whitespace.
+  - Match case-insensitively.
+  - Ignore duplicate requested tags.
+  - Clearly define whether a task matches `any` requested tag (recommended for MVP) or `all` tags.
+- **Sorting and pagination**
+  - Preserve pageable response contract and metadata.
+  - Continue supporting explicit sort parameters; define a stable fallback sort (`createdAt DESC, id DESC`).
+- **Backward compatibility**
+  - A request with no search/filter params behaves exactly like current task listing.
+
+### Validation & Error Handling
+- Invalid `status` value returns `400` with a clear validation message.
+- Invalid date format or `dueFrom > dueTo` returns `400`.
+- Unknown `assigneeId` inside the same project context should be handled consistently (either empty result set or `400`; choose one and document it).
+- Error payload shape must remain consistent with global exception handling.
+
+### API/Behavior Expectations
+- **Endpoint**
+  - Extend `GET /api/projects/{projectId}/tasks` with optional query parameters.
+- **Response**
+  - Keep existing `PageResponse<TaskResponse>` envelope.
+  - Optional enhancement: include an `appliedFilters` object in response metadata for debuggability (not required for MVP).
+- **Authorization**
+  - Filter/search execution only occurs after user/project authorization succeeds.
+
+### Non-Functional Requirements
+- **Performance**
+  - Typical filtered queries should respond within acceptable API latency targets (e.g., p95 < 500ms under expected load).
+  - Add/adjust DB indexes for common predicates (`project_id + status`, `project_id + assignee_id`, `project_id + due_date`), and assess trade-offs.
+- **Scalability**
+  - Filtering logic should be implemented with composable repository/specification criteria, not in-memory filtering.
+- **Observability**
+  - Log filter usage at debug/info level without leaking sensitive data.
+  - Capture metrics for query latency and result counts to detect slow/over-broad searches.
+
+### Testing Requirements
+- Unit tests for filter composition/criteria builder logic.
+- Repository/integration tests covering:
+  - Each individual filter.
+  - Multi-filter combinations.
+  - Boundary conditions for due dates.
+  - Case-insensitive search and tag matching.
+  - Pagination + sorting stability.
+- Controller tests for validation errors and successful parameter parsing.
+
+### Out of Scope (for this feature)
+- Fuzzy search, stemming, typo tolerance, or full-text search engines.
+- Saved views, personal filter presets, or advanced query language.
+- Cross-project/global search.
+- Tag model refactor from comma-separated storage to a normalized relation (can be a follow-up improvement).
