@@ -54,6 +54,10 @@ public class AuthController {
                 request.getTimezone()
         );
 
+        return getAuthResponseResponseEntity(httpServletRequest, user);
+    }
+
+    private ResponseEntity<AuthResponse> getAuthResponseResponseEntity(HttpServletRequest httpServletRequest, User user) {
         String accessToken = jwtTokenProvider.generateToken(user.getId(), user.getEmail());
         String refreshToken = refreshTokenService.issueToken(
                 user,
@@ -83,21 +87,7 @@ public class AuthController {
             throw new UnauthorizedException("Invalid email or password");
         }
 
-        String accessToken = jwtTokenProvider.generateToken(user.getId(), user.getEmail());
-        String refreshToken = refreshTokenService.issueToken(
-                user,
-                httpServletRequest.getHeader("User-Agent"),
-                httpServletRequest.getRemoteAddr()
-        );
-
-        AuthResponse response = new AuthResponse(
-                accessToken,
-                refreshToken,
-                user.getId(),
-                user.getEmail(),
-                user.getDisplayName()
-        );
-        return ResponseEntity.ok(response);
+        return getAuthResponseResponseEntity(httpServletRequest, user);
     }
 
     @PostMapping("/refresh")
