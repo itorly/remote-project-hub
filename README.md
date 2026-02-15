@@ -202,3 +202,120 @@ Introduce clear, enforceable access rules within organizations so that administr
 - Fine-grained permissions beyond Admin vs Member (e.g., project-specific roles).
 - Temporary elevated permissions or approval workflows.
 - UI/UX changes for role management (backend enforcement only).
+
+---
+
+## Requirements Analysis: Task Search & Filters (Tag, Assignee, Status, Due Date)
+
+### Goal
+Enable users to quickly narrow large task lists by applying structured filters and keyword search so they can identify actionable work (e.g., "overdue tasks assigned to me with bug tag") without manually scanning columns.
+
+### Scope & Assumptions
+- Applies to **task retrieval** within a project board context (not cross-project global search in v1).
+- Existing task fields are reused:
+  - `tags` (comma-separated MVP format)
+  - `assignee`
+  - `status`
+  - `dueDate`
+- Filtering is server-side to guarantee consistency, enforce access control, and avoid sending unnecessarily large payloads.
+- Users must already have access to the project/org to query tasks.
+
+### Problem Statement
+- Current board/task retrieval returns broad datasets and shifts filtering burden to clients.
+- As project size grows, client-side filtering becomes expensive and inconsistent across views.
+- Teams need canonical filtering behavior for collaboration and future sharing of views.
+
+### Functional Requirements
+- **Combined search + filters**
+  - Users can provide any combination of:
+    - `q` (free-text search)
+    - `tag`
+    - `assigneeId`
+    - `status`
+    - `dueDate` constraints
+  - Multiple parameters are composed with logical **AND**.
+- **Text search behavior (`q`)**
+  - Matches task title (required) and description (recommended).
+  - Case-insensitive matching.
+  - Partial match supported (substring semantics for MVP).
+- **Tag filter behavior**
+  - `tag` matches tasks containing that tag value in normalized form (trimmed; case-insensitive).
+  - If multiple tags are supported in the request (optional enhancement), define mode explicitly:
+    - `ANY` (default): task has at least one requested tag.
+    - `ALL` (optional): task contains every requested tag.
+- **Assignee filter behavior**
+  - `assigneeId=<uuid>` returns tasks assigned to that user.
+  - `assignee=unassigned` (or equivalent flag) returns tasks without assignee.
+  - Requests for users outside the org/project context return empty results or validation error per API convention.
+- **Status filter behavior**
+  - Supports one or more canonical task statuses (e.g., `TODO`, `IN_PROGRESS`, `DONE`).
+  - Invalid status values return 400 validation errors with clear allowed values.
+- **Due date filter behavior**
+  - Support standard range constraints:
+    - `dueBefore`
+    - `dueAfter`
+    - `dueOn` (calendar-day match in agreed timezone strategy)
+    - `overdue=true` (implies due date < "now" and task not in terminal status, if applicable)
+  - Define timezone rule explicitly (recommended: store/query in UTC; convert day boundaries on server).
+- **Sorting & pagination**
+  - Filtered endpoints should support deterministic sorting (default: `updatedAt desc`, tie-break by `id`).
+  - Pagination is required for large projects; include `page`, `size`, and total metadata.
+- **Access control**
+  - Only users authorized for the project can query/filter tasks.
+  - Querying tasks in unauthorized projects must return 403/404 according to existing concealment rules.
+
+### Non-Functional Requirements
+- **Performance**
+  - Target median query latency under normal load: < 300 ms for typical filtered requests.
+  - Index strategy should cover common predicates (`project_id`, `status`, `assignee_id`, `due_date`, text search fields as feasible).
+- **Scalability**
+  - Queries should remain efficient with thousands of tasks per project.
+  - Avoid N+1 fetch patterns for assignee/project relations.
+- **Consistency**
+  - Identical query params should always produce deterministic order and stable pagination.
+- **Security**
+  - Enforce server-side authorization before executing expensive search operations when possible.
+- **Observability**
+  - Log filter usage and query timing at aggregate level (no sensitive content), enabling performance tuning.
+
+### API/Behavior Expectations
+- **Endpoint shape (example)**
+  - `GET /api/projects/{projectId}/tasks?q=bug&tag=backend&assigneeId={id}&status=IN_PROGRESS&dueBefore=2026-12-31T23:59:59Z&page=0&size=20`
+- **Query parameter contract**
+  - Document optional vs required params, accepted enums, date-time formats (ISO-8601), and max page size.
+- **Response contract**
+  - Return a paged payload with task DTOs and pagination metadata.
+  - Include normalized filter echo (optional) to aid client debugging.
+- **Validation/error handling**
+  - 400 on malformed UUID/date/enums.
+  - 400 when incompatible parameters are sent (e.g., `dueOn` with contradictory range if disallowed).
+  - Errors follow existing global error response schema.
+
+### Data & Domain Considerations
+- **Tags modeling (MVP vs future)**
+  - MVP uses comma-separated `tags`; define normalization rules (trim, lowercase, deduplicate) to reduce inconsistent matches.
+  - Future-ready option: migrate to join table (`task_tags`) for robust querying and indexing.
+- **Due date semantics**
+  - Clarify whether tasks without `dueDate` are excluded from due-date filters (recommended: yes unless explicitly requested).
+  - Clarify whether completed tasks are excluded from `overdue=true`.
+- **Status source of truth**
+  - Validate against backend enum, not client-provided arbitrary strings.
+
+### Edge Cases
+- Empty search/filter input should behave as standard project task listing.
+- Filters yielding zero tasks still return 200 with empty `content` and valid pagination metadata.
+- Very large `q` values or excessive filter lists should be rejected or capped to prevent abuse.
+- Mixed-case tags/status query values should be normalized when safe.
+
+### Acceptance Criteria
+- A user can combine at least 3 filters (e.g., `tag + assignee + status`) and receive correct intersected results.
+- Due date filters return correct results around UTC day boundaries.
+- Unauthorized users cannot enumerate or infer tasks through filter queries.
+- API docs clearly describe filter parameters, examples, and error cases.
+- Automated tests cover repository/query logic, service authorization, and controller validation paths.
+
+### Out of Scope (for this feature)
+- Saved filter presets or personal views.
+- Full-text ranking/relevance scoring.
+- Cross-project/global workspace search.
+- Advanced natural language query parsing.
